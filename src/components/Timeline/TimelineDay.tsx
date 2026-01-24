@@ -17,10 +17,24 @@ export function TimelineDay({ date, events, dayId }: TimelineDayProps) {
     });
 
     return (
-        <div className="flex flex-col gap-2 min-w-[280px] max-w-[320px] flex-shrink-0">
-            <div className="sticky top-0 z-10 bg-background/95 backdrop-blur py-2 border-b mb-2">
-                <h3 className="font-bold text-lg">{format(date, 'MMM d')}</h3>
-                <span className="text-sm text-muted-foreground">{format(date, 'EEEE')}</span>
+        <div className="flex flex-col gap-2 min-w-[320px] max-w-[320px] max-h-full flex-shrink-0 h-full"> {/* Height fixes for scrolling */}
+            <div className={`sticky top-0 z-10 bg-background/95 backdrop-blur py-3 border-b mb-2 ${dayId === 'unscheduled' ? 'border-dashed border-muted-foreground/20' : ''}`}>
+                <div className="flex flex-col items-center justify-center w-full">
+                    {dayId === 'unscheduled' ? (
+                        <h3 className="font-serif font-bold text-muted-foreground tracking-widest uppercase text-sm text-center">
+                            Backlog
+                        </h3>
+                    ) : (
+                        <div className="flex flex-col items-center text-center">
+                            <h3 className="font-serif font-bold text-lg text-foreground">
+                                {format(date, 'MMM d')}
+                            </h3>
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                {format(date, 'EEEE')}
+                            </span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div

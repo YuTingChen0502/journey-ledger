@@ -4,14 +4,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { TripEventDocType } from '@/db/schema';
 import { format } from 'date-fns';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Trash2 } from 'lucide-react'; // Added Trash2
 import DOMPurify from 'dompurify';
+import { useRxCollection } from 'rxdb-hooks'; // Added useRxCollection
+import { Button } from '@/components/ui/button'; // Added UI Button
 
 interface TimelineEventProps {
     event: TripEventDocType;
 }
 
 export function TimelineEvent({ event }: TimelineEventProps) {
+    const collection = useRxCollection<TripEventDocType>('tripevents');
+
     const {
         attributes,
         listeners,
@@ -27,20 +31,35 @@ export function TimelineEvent({ event }: TimelineEventProps) {
         opacity: isDragging ? 0.5 : 1,
     };
 
-    // Sanitize display content (though React escapes by default, this is good for rich text if added)
-    // const cleanDescription = DOMPurify.sanitize(event.description || '');
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent drag start or card click
+        if (confirm('Delete this event?')) {
+            const doc = await collection?.findOne(event.id).exec();
+            await doc?.incrementalPatch({ is_deleted: true, updated_at: Date.now() });
+        }
+    };
 
     return (
-        <div ref={setNodeRef} style={style} className="mb-2">
+        <div ref={setNodeRef} style={style} className="mb-2 relative group touch-none">
             <Card className="hover:shadow-md transition-shadow cursor-default bg-card">
                 <CardContent className="p-3 flex items-start gap-3">
-                    <div {...attributes} {...listeners} className="mt-1 cursor-grab text-muted-foreground hover:text-foreground">
+                    <div {...attributes} {...listeners} className="mt-1 cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing">
                         <GripVertical className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                             <h4 className="font-semibold text-sm truncate">{event.title}</h4>
-                            {event.is_floating && <Badge variant="outline" className="text-[10px] px-1 h-5">Unscheduled</Badge>}
+                            <div className="flex items-center gap-1">
+                                {event.is_floating && <Badge variant="outline" className="text-[10px] px-1 h-5">Unscheduled</Badge>}
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-muted-foreground hover:text-destructive transition-colors"
+                                    onClick={handleDelete}
+                                >
+                                    <Trash2 className="h-3 w-3" />
+                                </Button>
+                            </div>
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 flex gap-2">
                             {!event.is_floating && event.start_time && (

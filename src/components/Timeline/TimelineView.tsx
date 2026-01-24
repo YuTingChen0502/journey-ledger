@@ -39,12 +39,14 @@ export function TimelineView({ tripId }: TimelineViewProps) {
     );
 
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [showBacklog, setShowBacklog] = useState(false); // Collapsible Backlog State
 
     // Grouping Logic
     const { days, floatingEvents } = useMemo(() => {
-        // Strict Date Range: Jan 31, 2026 to Feb 7, 2026
-        const startDate = new Date('2026-01-31');
-        const endDate = new Date('2026-02-07');
+        // Strict Date Range: Feb 1, 2026 to Feb 8, 2026
+        // Adjusted per user request (Sunday Start)
+        const startDate = new Date('2026-02-01');
+        const endDate = new Date('2026-02-08');
 
         const dayMap = new Map<string, TripEventDocType[]>();
 
@@ -152,15 +154,6 @@ export function TimelineView({ tripId }: TimelineViewProps) {
             newRank = generateRankBetween(last?.sort_order, undefined);
         } else if (overIndex !== -1) {
             const overItem = floatingEvents[overIndex];
-            // Determine if above or below? dnd-kit sortable usually handles index swap.
-            // We need to calculate rank.
-            // Let's rely on finding neighbors in the *sorted* list we have locally.
-            // If we drop *over* item X, usually means taking X's place.
-            // We need to check useSortable indices.
-
-            // Simplification for prototype: always put after `over` item for now, 
-            // but correct Lexorank logic needs index.
-            // Let's leave simple logic:
             newRank = generateRankBetween(overItem.sort_order, floatingEvents[overIndex + 1]?.sort_order);
         }
 
@@ -216,10 +209,6 @@ export function TimelineView({ tripId }: TimelineViewProps) {
             // Keep time, change date. Default to 09:00 if no time.
             const timePart = item.start_time ? parseISO(item.start_time).toTimeString().substring(0, 5) : '09:00';
             newStartTime = `${dateKey}T${timePart}:00.000Z`; // Simple ISO construction
-            // Better to use date-fns to be safe with timezone? 
-            // Actually, storing as string is ambiguous if not Full ISO. 
-            // Let's stick to simple string replacement for Phase 3 Proof of Concept, 
-            // ensuring we respect the YYYY-MM-DD from the group key.
         }
 
         const doc = await collection?.findOne(item.id).exec();
@@ -264,27 +253,47 @@ export function TimelineView({ tripId }: TimelineViewProps) {
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="relative flex h-[calc(100vh-140px)] gap-4 overflow-hidden">
-                {/* Desktop Backlog Sidebar */}
-                <div className="hidden md:flex w-64 flex-shrink-0 flex-col border-r bg-muted/10 p-2">
-                    <h3 className="font-bold mb-2 px-2 text-sm uppercase text-muted-foreground tracking-wider">Unscheduled</h3>
-                    <TimelineDay
-                        dayId="unscheduled"
-                        date={new Date(0)}
-                        events={floatingEvents}
-                    />
+            {/* Header with Backlog Toggle */}
+            <div className="flex items-center justify-end px-4 py-2 border-b bg-background/95 backdrop-blur z-10">
+                <Button
+                    variant={showBacklog ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => setShowBacklog(!showBacklog)}
+                    className="gap-2"
+                >
+                    <ListFilter className="h-4 w-4" />
+                    <span>{showBacklog ? 'Hide Backlog' : 'Show Backlog'}</span>
+                </Button>
+            </div>
+
+            <div className="relative flex h-[calc(100vh-140px-45px)] gap-0 overflow-hidden">
+                {/* Collapsible Desktop Backlog Sidebar */}
+                <div
+                    className={`hidden md:flex flex-col border-r bg-muted/10 transition-all duration-300 ease-in-out overflow-hidden ${showBacklog ? 'w-80 opacity-100 p-2' : 'w-0 opacity-0 p-0 border-none'
+                        }`}
+                >
+                    <div className="min-w-[300px] h-full">
+                        <TimelineDay
+                            dayId="unscheduled"
+                            date={new Date(0)}
+                            events={floatingEvents}
+                        />
+                    </div>
                 </div>
 
-                {/* Main Timeline Days (Horizontal Scroll) */}
-                <div className="flex-1 overflow-x-auto flex gap-4 p-2 pb-20 md:pb-2">
-                    {days.map(([dateStr, dayEvents]) => (
-                        <TimelineDay
-                            key={dateStr}
-                            dayId={dateStr}
-                            date={parseISO(dateStr)}
-                            events={dayEvents}
-                        />
-                    ))}
+                {/* Horizontal Scroll Day View */}
+                <div className="flex-1 overflow-x-auto overflow-y-hidden">
+                    <div className="flex h-full p-4 gap-4">
+                        {days.map(([dateStr, dayEvents]) => (
+                            <TimelineDay
+                                key={dateStr}
+                                dayId={dateStr}
+                                date={parseISO(dateStr)}
+                                events={dayEvents}
+                            />
+                        ))}
+                        <div className="min-w-[50px]"></div> {/* Padding at end */}
+                    </div>
                 </div>
 
                 {/* Mobile Trigger & Sheet */}

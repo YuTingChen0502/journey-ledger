@@ -1,8 +1,8 @@
 import { Card } from "@/components/ui/card"
-import { TableProperties, Map } from "lucide-react"
+import { CalendarDays, Map } from "lucide-react"
 
 interface TripDashboardProps {
-    onNavigate: (view: 'table' | 'planner') => void;
+    onNavigate: (view: 'overview' | 'table' | 'planner') => void;
 }
 
 export function TripDashboard({ onNavigate }: TripDashboardProps) {
@@ -22,33 +22,38 @@ export function TripDashboard({ onNavigate }: TripDashboardProps) {
                 </div>
             </div>
 
-            {/* Navigation Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-                {/* Planner Card */}
+            {/* Main Sections */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl px-4">
+
+                {/* 1. Overview Section */}
                 <Card
-                    className="group cursor-pointer hover:shadow-lg transition-all duration-300 border-none bg-white p-8 flex flex-col items-center justify-center gap-4 min-h-[220px]"
-                    onClick={() => onNavigate('planner')}
+                    className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-8 flex flex-col items-center justify-center gap-6 min-h-[280px]"
+                    onClick={() => onNavigate('overview')}
                 >
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <Map className="h-8 w-8 text-primary" />
+                    <div className="h-20 w-20 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <CalendarDays className="h-10 w-10 text-indigo-600" />
                     </div>
-                    <div className="text-center space-y-1">
-                        <h3 className="text-xl font-serif font-semibold text-foreground">Itinerary Planner</h3>
-                        <p className="text-sm text-muted-foreground">Drag & Drop Schedule</p>
+                    <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-serif font-semibold text-foreground">Overview</h3>
+                        <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">
+                            View your travel journal and itinerary in a read-only format.
+                        </p>
                     </div>
                 </Card>
 
-                {/* Data Grid Card */}
+                {/* 2. Planning Section */}
                 <Card
-                    className="group cursor-pointer hover:shadow-lg transition-all duration-300 border-none bg-white p-8 flex flex-col items-center justify-center gap-4 min-h-[220px]"
-                    onClick={() => onNavigate('table')}
+                    className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-8 flex flex-col items-center justify-center gap-6 min-h-[280px]"
+                    onClick={() => onNavigate('planner')}
                 >
-                    <div className="h-16 w-16 rounded-full bg-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <TableProperties className="h-8 w-8 text-secondary" />
+                    <div className="h-20 w-20 rounded-full bg-rose-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Map className="h-10 w-10 text-rose-600" />
                     </div>
-                    <div className="text-center space-y-1">
-                        <h3 className="text-xl font-serif font-semibold text-foreground">Data Grid</h3>
-                        <p className="text-sm text-muted-foreground">Spreadsheet View</p>
+                    <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-serif font-semibold text-foreground">Planning</h3>
+                        <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">
+                            Edit schedule, manage data grid, and organize events.
+                        </p>
                     </div>
                 </Card>
             </div>

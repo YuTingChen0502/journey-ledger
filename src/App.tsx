@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { TripDashboard } from './components/Home/TripDashboard'
 import { TripTable } from './components/TripTable'
+import { TripViewer } from './components/TripViewer/TripViewer'
 import { TimelineView } from './components/Timeline/TimelineView'
 import { ResponsiveLayout } from './components/Layout/ResponsiveLayout'
 import type { Session } from '@supabase/supabase-js'
@@ -37,8 +38,11 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Mode: 'dashboard' | 'table' | 'planner'
-  const [mode, setMode] = useState<'dashboard' | 'table' | 'planner'>('dashboard');
+  // Mode for Top Level Navigation
+  const [mode, setMode] = useState<'dashboard' | 'overview' | 'planning'>('dashboard');
+  // Sub-mode for Planning Section
+  const [planningView, setPlanningView] = useState<'timeline' | 'table'>('timeline');
+
   const TRIP_ID = 'nagoya-2026';
 
   if (!session) return <Auth />
@@ -49,24 +53,34 @@ function App() {
       <div className="flex items-center gap-4 cursor-pointer" onClick={() => setMode('dashboard')}>
         <h2 className="text-xl font-serif font-bold tracking-tight text-primary">Nagoya 2026</h2>
       </div>
-      <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
-        <Button
-          variant={mode === 'table' ? 'secondary' : 'ghost'}
-          size="sm"
-          onClick={() => setMode('table')}
-          className="text-xs font-medium"
-        >
-          Grid
+
+      {/* Show context-specific controls */}
+      {mode === 'planning' && (
+        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
+          <Button
+            variant={planningView === 'timeline' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setPlanningView('timeline')}
+            className="text-xs font-medium"
+          >
+            Timeline
+          </Button>
+          <Button
+            variant={planningView === 'table' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => setPlanningView('table')}
+            className="text-xs font-medium"
+          >
+            Data Grid
+          </Button>
+        </div>
+      )}
+
+      {mode === 'overview' && (
+        <Button variant="ghost" size="sm" onClick={() => setMode('planning')}>
+          Edit Itinerary
         </Button>
-        <Button
-          variant={mode === 'planner' ? 'secondary' : 'ghost'}
-          size="sm"
-          onClick={() => setMode('planner')}
-          className="text-xs font-medium"
-        >
-          Planner
-        </Button>
-      </div>
+      )}
     </>
   );
 
@@ -82,17 +96,17 @@ function App() {
       </Button>
 
       <Button
-        variant={mode === 'table' ? 'default' : 'ghost'}
-        onClick={() => setMode('table')}
+        variant={mode === 'overview' ? 'default' : 'ghost'}
+        onClick={() => setMode('overview')}
         className="flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl"
       >
-        <span className="text-xl">📊</span>
-        <span className="text-[10px] font-medium tracking-wide">Grid</span>
+        <span className="text-xl">📖</span>
+        <span className="text-[10px] font-medium tracking-wide">Journal</span>
       </Button>
 
       <Button
-        variant={mode === 'planner' ? 'default' : 'ghost'}
-        onClick={() => setMode('planner')}
+        variant={mode === 'planning' ? 'default' : 'ghost'}
+        onClick={() => setMode('planning')}
         className="flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl"
       >
         <span className="text-xl">✏️</span>
@@ -111,9 +125,22 @@ function App() {
       >
         {/* Main Content Area */}
         <div className={`h-full w-full overflow-hidden relative ${mode !== 'dashboard' ? 'bg-card' : ''}`}>
-          {mode === 'dashboard' && <TripDashboard onNavigate={setMode} />}
-          {mode === 'table' && <TripTable />}
-          {mode === 'planner' && <TimelineView tripId={TRIP_ID} />}
+          {mode === 'dashboard' && <TripDashboard onNavigate={(view) => {
+            if (view === 'planner') {
+              setPlanningView('timeline');
+              setMode('planning');
+            } else if (view === 'table') {
+              setPlanningView('table');
+              setMode('planning');
+            } else {
+              setMode(view);
+            }
+          }} />}
+
+          {mode === 'overview' && <TripViewer tripId={TRIP_ID} />}
+
+          {mode === 'planning' && planningView === 'timeline' && <TimelineView tripId={TRIP_ID} />}
+          {mode === 'planning' && planningView === 'table' && <TripTable />}
         </div>
       </ResponsiveLayout>
     </Provider>
