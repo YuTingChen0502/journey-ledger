@@ -4,14 +4,26 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { TripEventDocType } from '@/db/schema';
 import { format } from 'date-fns';
-import { GripVertical, Trash2 } from 'lucide-react'; // Added Trash2
+import { GripVertical, Trash2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import { useRxCollection } from 'rxdb-hooks'; // Added useRxCollection
-import { Button } from '@/components/ui/button'; // Added UI Button
+import { useRxCollection } from 'rxdb-hooks';
+import { Button } from '@/components/ui/button';
 
 interface TimelineEventProps {
     event: TripEventDocType;
 }
+
+// Helper for safe date formatting
+const safeFormatTime = (isoString: string | null | undefined) => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return 'Invalid';
+        return format(date, 'HH:mm');
+    } catch (e) {
+        return 'Error';
+    }
+};
 
 export function TimelineEvent({ event }: TimelineEventProps) {
     const collection = useRxCollection<TripEventDocType>('tripevents');
@@ -63,7 +75,7 @@ export function TimelineEvent({ event }: TimelineEventProps) {
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 flex gap-2">
                             {!event.is_floating && event.start_time && (
-                                <span>{format(new Date(event.start_time), 'HH:mm')}</span>
+                                <span>{safeFormatTime(event.start_time)}</span>
                             )}
                             {event.location && (
                                 <span className="truncate max-w-[150px]">{DOMPurify.sanitize(event.location)}</span>

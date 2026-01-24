@@ -10,12 +10,20 @@ import { TripTable } from './components/TripTable'
 import { TripViewer } from './components/TripViewer/TripViewer'
 import { TimelineView } from './components/Timeline/TimelineView'
 import { ResponsiveLayout } from './components/Layout/ResponsiveLayout'
+import { ImportModal } from './components/ImportModal'
+import { EventModal } from './components/EventModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import type { Session } from '@supabase/supabase-js'
 import { Provider } from 'rxdb-hooks'
+import { Plus } from 'lucide-react'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [db, setDb] = useState<any>(null)
+
+  // Event Modal State
+  const [eventModalOpen, setEventModalOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -45,6 +53,16 @@ function App() {
 
   const TRIP_ID = 'nagoya-2026';
 
+  const handleCreateEvent = () => {
+    setSelectedEventId(null);
+    setEventModalOpen(true);
+  };
+
+  const handleEditEvent = (id: string) => {
+    setSelectedEventId(id);
+    setEventModalOpen(true);
+  };
+
   if (!session) return <Auth />
   if (!db) return <LoadingSkeleton />
 
@@ -54,9 +72,8 @@ function App() {
         <h2 className="text-xl font-serif font-bold tracking-tight text-primary">Nagoya 2026</h2>
       </div>
 
-      {/* Show context-specific controls */}
       {mode === 'planning' && (
-        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
+        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg ml-4">
           <Button
             variant={planningView === 'timeline' ? 'secondary' : 'ghost'}
             size="sm"
@@ -76,11 +93,32 @@ function App() {
         </div>
       )}
 
-      {mode === 'overview' && (
-        <Button variant="ghost" size="sm" onClick={() => setMode('planning')}>
-          Edit Itinerary
-        </Button>
-      )}
+      <div className="flex items-center gap-2 ml-auto">
+        {mode === 'planning' && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2 border-dashed"
+            onClick={handleCreateEvent}
+          >
+            <Plus className="w-4 h-4" /> Create
+          </Button>
+        )}
+
+        {mode === 'overview' && (
+          <Button variant="ghost" size="sm" onClick={() => setMode('planning')}>
+            Edit Itinerary
+          </Button>
+        )}
+        <ImportModal
+          tripId={TRIP_ID}
+          userId={session.user.id}
+          onImportSuccess={() => {
+            setMode('planning');
+            setPlanningView('table');
+          }}
+        />
+      </div>
     </>
   );
 
@@ -125,24 +163,35 @@ function App() {
       >
         {/* Main Content Area */}
         <div className={`h-full w-full overflow-hidden relative ${mode !== 'dashboard' ? 'bg-card' : ''}`}>
-          {mode === 'dashboard' && <TripDashboard onNavigate={(view) => {
-            if (view === 'planner') {
-              setPlanningView('timeline');
-              setMode('planning');
-            } else if (view === 'table') {
-              setPlanningView('table');
-              setMode('planning');
-            } else {
-              setMode(view);
-            }
-          }} />}
+          <ErrorBoundary>
+            {mode === 'dashboard' && <TripDashboard onNavigate={(view) => {
+              if (view === 'planner') {
+                setPlanningView('timeline');
+                setMode('planning');
+              } else if (view === 'table') {
+                setPlanningView('table');
+                setMode('planning');
+              } else {
+                setMode(view);
+              }
+            }} />}
 
-          {mode === 'overview' && <TripViewer tripId={TRIP_ID} />}
+            {mode === 'overview' && <TripViewer tripId={TRIP_ID} />}
 
-          {mode === 'planning' && planningView === 'timeline' && <TimelineView tripId={TRIP_ID} />}
-          {mode === 'planning' && planningView === 'table' && <TripTable />}
+            {mode === 'planning' && planningView === 'timeline' && <TimelineView tripId={TRIP_ID} />}
+            {mode === 'planning' && planningView === 'table' && <TripTable onEdit={handleEditEvent} />}
+          </ErrorBoundary>
         </div>
       </ResponsiveLayout>
+
+      {/* Event Modal (Global) */}
+      <EventModal
+        userId={session.user.id}
+        eventId={selectedEventId}
+        isOpen={eventModalOpen}
+        onOpenChange={setEventModalOpen}
+        defaultDate={new Date()}
+      />
     </Provider>
   )
 }

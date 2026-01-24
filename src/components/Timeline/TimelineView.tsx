@@ -19,7 +19,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTr
 import { Button } from '@/components/ui/button';
 import { ListFilter } from 'lucide-react';
 import { generateRankBetween } from '@/lib/lexorank';
-import { addDays, format, parseISO } from 'date-fns';
+import { addDays, format, parseISO, isValid } from 'date-fns';
 
 interface TimelineViewProps {
     tripId: string;
@@ -43,10 +43,9 @@ export function TimelineView({ tripId }: TimelineViewProps) {
 
     // Grouping Logic
     const { days, floatingEvents } = useMemo(() => {
-        // Strict Date Range: Feb 1, 2026 to Feb 8, 2026
-        // Adjusted per user request (Sunday Start)
-        const startDate = new Date('2026-02-01');
-        const endDate = new Date('2026-02-08');
+        // Strict Date Range: Jan 31, 2026 to Feb 7, 2026 (8 Days)
+        const startDate = new Date('2026-01-31');
+        const endDate = new Date('2026-02-07');
 
         const dayMap = new Map<string, TripEventDocType[]>();
 
@@ -63,11 +62,23 @@ export function TimelineView({ tripId }: TimelineViewProps) {
             if (event.is_floating || !event.start_time) {
                 floating.push(event);
             } else {
-                const dayKey = format(parseISO(event.start_time), 'yyyy-MM-dd');
-                if (dayMap.has(dayKey)) {
-                    dayMap.get(dayKey)?.push(event);
-                } else {
-                    // unexpected date, treat as floating for now to avoid data loss
+                try {
+                    // Safe Date Parsing
+                    const parsed = parseISO(event.start_time);
+                    if (isValid(parsed)) {
+                        const dayKey = format(parsed, 'yyyy-MM-dd');
+                        if (dayMap.has(dayKey)) {
+                            dayMap.get(dayKey)?.push(event);
+                        } else {
+                            // Date out of range or unexpected
+                            floating.push(event);
+                        }
+                    } else {
+                        console.warn("Invalid date found:", event.start_time);
+                        floating.push(event);
+                    }
+                } catch (e) {
+                    console.error("Error parsing date for event:", event.id, e);
                     floating.push(event);
                 }
             }

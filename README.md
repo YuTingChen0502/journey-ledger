@@ -1,73 +1,64 @@
-# React + TypeScript + Vite
+# Nagoya 2026 Trip Planner (v0.3.6)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An advanced, offline-first travel itinerary management tool built for the 2026 Nagoya Trip.
+Powered by **React**, **RxDB** (Local-First), and **Supabase** (Auth).
 
-Currently, two official plugins are available:
+## 🚀 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 📅 Smart Itinerary Planning
+-   **Timeline View**: A drag-and-drop powered Gantt-chart style view for visualize your trip flow. Supports an **8-Day Itinerary** (Jan 31 - Feb 07).
+-   **Data Grid**: A powerful table view for bulk editing events, sorting, and managing details.
+-   **Floating Events**: A "Backlog" or "Unscheduled" area for ideas that haven't been assigned a specific time yet.
 
-## React Compiler
+### 🧠 Intelligent Import System
+-   **Natural Language Parsing**: Paste unstructured text (e.g., from Notion, Chat logs) and the app intelligently extracts dates, times, and locations.
+-   **Staging Area**: Review and refine imported items before committing them to your main database.
+-   **Multi-Day Support**: Automatically detects date headers (e.g., "Day 1: 2026-02-01") and assigns events accordingly.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🛡️ Robust Architecture
+-   **Local-First Database**: Uses **RxDB** to store all data locally in your browser. Works completely offline.
+-   **Crash Protection**: Built-in Error Boundaries and Safe Date Formatting prevent the app from breaking even with corrupt data.
+-   **Data Recovery**: Includes a "Nuke Data" option to reset your local database in case of emergencies.
 
-## Expanding the ESLint configuration
+## 🛠️ Tech Stack
+-   **Frontend**: React 18, TypeScript, Vite
+-   **UI Framework**: TailwindCSS, shadcn/ui
+-   **Database**: RxDB (IndexedDB wrapper)
+-   **Authentication**: Supabase
+-   **Drag & Drop**: dnd-kit
+-   **Date Handling**: date-fns
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📝 TODO / Roadmap
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### ✅ Completed
+-   [x] Initial Setup & Database Schema
+-   [x] Authentication (Google/Email)
+-   [x] Smart Import Modal (Regex & JSON)
+-   [x] Timeline & Table Views
+-   [x] Drag & Drop Reordering
+-   [x] **Critical**: Crash Proofing & Error Boundaries
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 🚧 Pending Features
+-   [ ] **點即可展開詳細資訊 (Click to Expand Details)**
+    -   Implement a collapsible detail view for each event card in the Timeline.
+    -   Allow viewing notes, links, and reservation numbers without leaving the timeline.
+-   [ ] **與 Google Map 導航功能連結 (Google Maps Navigation Link)**
+    -   Add a "Navigate" button to event cards.
+    -   Automatically open the location in Google Maps app based on the `location` field.
+    -   Generate daily route summaries.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 📦 quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## ⚠️ Troubleshooting
+If you encounter a **White Screen** or **Crash**:
+1.  Reload the page.
+2.  If the red "Application Crashed" screen appears, click **"🗑️ Nuke Data & Reset"**.
+3.  This will clear your local cache and fix data corruption issues.

@@ -22,7 +22,19 @@ import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 import { ArrowUpDown, Pencil, Trash2 } from 'lucide-react'
 
-export function TripTable() {
+// Helper for safe date formatting
+const safeFormatTime = (isoString: string | null | undefined) => {
+    if (!isoString) return '--:--';
+    try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return 'Invalid';
+        return format(date, 'PP p');
+    } catch (e) {
+        return 'Error';
+    }
+};
+
+export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const { result: data, isFetching } = useRxData<TripEventDocType>(
         'tripevents',
@@ -65,7 +77,7 @@ export function TripTable() {
             header: 'Start Time',
             cell: ({ row }) => {
                 const val = row.getValue('start_time') as string;
-                return val ? format(new Date(val), 'PP p') : '-';
+                return safeFormatTime(val);
             }
         },
         {
@@ -88,7 +100,7 @@ export function TripTable() {
 
                 return (
                     <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => alert('Edit ' + item.title)}>
+                        <Button variant="ghost" size="icon" onClick={() => onEdit?.(item.id)}>
                             <Pencil className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={handleDelete}>
