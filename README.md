@@ -20,6 +20,31 @@ Powered by **React**, **RxDB** (Local-First), and **Supabase** (Auth).
 -   **Crash Protection**: Built-in Error Boundaries and Safe Date Formatting prevent the app from breaking even with corrupt data.
 -   **Data Recovery**: Includes a "Nuke Data" option to reset your local database in case of emergencies.
 
+## 📝 Changelog
+
+### v0.4.0: Interactive Timeline Engine (Current)
+- **Vertical Week View**: Full interactive grid for Jan 31 - Feb 7, 2026.
+- **Precision Drag & Drop**:
+    - Absolute grid positioning with "Duration Lock" (moving doesn't resize).
+    - 5-minute magnetic snapping (10px intervals).
+- **Live Resizing**:
+    - Bottom-handle resizing logic with touch support.
+    - Real-time HUD showing "End Time" during manipulation.
+- **UI Improvements**:
+    - Collapsible "Unscheduled" Sidebar.
+    - Refined Header Layout (Split Actions/Views).
+    - Fixed Date Range & Timezone logic.
+
+### v0.3.5: Event Management
+- **Add/Edit Modal**: Unified `EventModal` with "Create" and "Update" modes.
+- **Crash Prevention**: Robust date parsing and error boundaries.
+- **Data Safety**: "Nuke Data" recovery option.
+
+### v0.3.0: Smart Import & Staging
+- **Natural Language Parsing**: Paste unstructured text (e.g., from Notion, Chat logs) and the app intelligently extracts dates, times, and locations.
+- **Staging Area**: Review and refine imported items before committing them to your main database.
+- **Multi-Day Support**: Automatically detects date headers (e.g., "Day 1: 2026-02-01") and assigns events accordingly.
+
 ## 🛠️ Tech Stack
 -   **Frontend**: React 18, TypeScript, Vite
 -   **UI Framework**: TailwindCSS, shadcn/ui

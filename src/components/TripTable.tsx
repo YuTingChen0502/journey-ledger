@@ -19,20 +19,9 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { format } from 'date-fns'
 import { ArrowUpDown, Pencil, Trash2 } from 'lucide-react'
 
-// Helper for safe date formatting
-const safeFormatTime = (isoString: string | null | undefined) => {
-    if (!isoString) return '--:--';
-    try {
-        const date = new Date(isoString);
-        if (isNaN(date.getTime())) return 'Invalid';
-        return format(date, 'PP p');
-    } catch (e) {
-        return 'Error';
-    }
-};
+import { safeFormatTime } from '@/lib/dateUtils'
 
 export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
     const collection = useRxCollection<TripEventDocType>('tripevents');

@@ -4,25 +4,50 @@ import type { TripEventDocType } from '@/db/schema';
 import {
     DndContext,
     DragOverlay,
-    closestCorners,
-    KeyboardSensor,
-    PointerSensor,
     useSensor,
     useSensors,
+    useDroppable,
+    PointerSensor,
     type DragEndEvent,
-    type DragStartEvent
+    type DragStartEvent,
+    type DragMoveEvent,
+    type Modifier,
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { TimelineDay } from './TimelineDay';
+import { DayColumn } from './DayColumn';
 import { TimelineEvent } from './TimelineEvent';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
+import { addDays, format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
+import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
 import { Button } from '@/components/ui/button';
-import { ListFilter } from 'lucide-react';
-import { generateRankBetween } from '@/lib/lexorank';
-import { addDays, format, parseISO, isValid } from 'date-fns';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface TimelineViewProps {
     tripId: string;
+}
+
+const PPM = 2; // Pixels per minute
+const START_HOUR = 6; // 06:00 AM
+const DAY_START_MINUTES = START_HOUR * 60;
+
+// Snap Modifier: 5 minutes = 10px
+const snapToGridModifier: Modifier = ({ transform }) => {
+    return {
+        ...transform,
+        y: Math.round(transform.y / 10) * 10,
+        x: Math.round(transform.x / 1),
+    };
+};
+
+// Sub-component for Backlog Droppable
+function BacklogArea({ children }: { children: React.ReactNode }) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: 'backlog',
+    });
+    return (
+        <div ref={setNodeRef} className={`flex-1 overflow-y-auto p-2 ${isOver ? 'bg-accent/20' : ''}`}>
+            {children}
+        </div>
+    );
 }
 
 export function TimelineView({ tripId }: TimelineViewProps) {
@@ -34,285 +59,290 @@ export function TimelineView({ tripId }: TimelineViewProps) {
                 trip_id: { $eq: tripId },
                 is_deleted: { $eq: false }
             },
-            sort: [{ start_time: 'asc' }, { sort_order: 'asc' }]
+            sort: [{ start_time: 'asc' }]
         })
     );
 
     const [activeId, setActiveId] = useState<string | null>(null);
-    const [showBacklog, setShowBacklog] = useState(false); // Collapsible Backlog State
+    const [showBacklog, setShowBacklog] = useState(true);
+    const [previewTime, setPreviewTime] = useState<string | null>(null);
 
-    // Grouping Logic
-    const { days, floatingEvents } = useMemo(() => {
-        // Strict Date Range: Jan 31, 2026 to Feb 7, 2026 (8 Days)
-        const startDate = new Date('2026-01-31');
-        const endDate = new Date('2026-02-07');
+    // Date Range: Jan 31 - Feb 7
+    // Use local time constructor to avoid UTC timezone shifts
+    const startDate = new Date(2026, 0, 31); // Jan 31, 2026 00:00:00 Local
+    const days = Array.from({ length: 8 }, (_, i) => addDays(startDate, i));
 
-        const dayMap = new Map<string, TripEventDocType[]>();
-
-        // Initialize Map with all dates in range
-        let currentDate = startDate;
-        while (currentDate <= endDate) {
-            dayMap.set(format(currentDate, 'yyyy-MM-dd'), []);
-            currentDate = addDays(currentDate, 1);
-        }
-
+    // Group Events by Day
+    const { dayEvents, floatingEvents } = useMemo(() => {
+        const map = new Map<string, TripEventDocType[]>();
         const floating: TripEventDocType[] = [];
+
+        days.forEach(d => map.set(format(d, 'yyyy-MM-dd'), []));
 
         events.forEach(event => {
             if (event.is_floating || !event.start_time) {
                 floating.push(event);
             } else {
-                try {
-                    // Safe Date Parsing
-                    const parsed = parseISO(event.start_time);
-                    if (isValid(parsed)) {
-                        const dayKey = format(parsed, 'yyyy-MM-dd');
-                        if (dayMap.has(dayKey)) {
-                            dayMap.get(dayKey)?.push(event);
-                        } else {
-                            // Date out of range or unexpected
-                            floating.push(event);
-                        }
+                const date = safeParseISO(event.start_time);
+                if (date) {
+                    const key = format(date, 'yyyy-MM-dd');
+                    if (map.has(key)) {
+                        map.get(key)?.push(event);
                     } else {
-                        console.warn("Invalid date found:", event.start_time);
-                        floating.push(event);
+                        floating.push(event); // Out of range
                     }
-                } catch (e) {
-                    console.error("Error parsing date for event:", event.id, e);
+                } else {
                     floating.push(event);
                 }
             }
         });
 
-        // Lexorank sort within groups
-        for (const [_, dayEvents] of dayMap) {
-            dayEvents.sort((a, b) => a.sort_order.localeCompare(b.sort_order));
-        }
-
-        const sortedDays = Array.from(dayMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-
-        // Sort floating by sort_order
-        floating.sort((a, b) => a.sort_order.localeCompare(b.sort_order));
-
-        return { days: sortedDays, floatingEvents: floating };
+        return { dayEvents: map, floatingEvents: floating };
     }, [events]);
 
-    const [isBacklogOpen, setIsBacklogOpen] = useState(false);
-
-    // Sensor Configuration for Mobile (Long Press to Drag)
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                delay: 250, // 250ms delay for long press
-                tolerance: 5, // 5px tolerance
+                distance: 8,
             },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
         })
     );
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string);
-        // If coming from sheet, we might need to close it? 
-        // dnd-kit usually handles overlay well. 
-        // UX decision: keep sheet open or close? Let's keep it open for now.
+        const activeEvent = events.find(e => e.id === event.active.id);
+        if (activeEvent?.start_time) {
+            setPreviewTime(safeFormatTime(activeEvent.start_time));
+        }
+    };
+
+    const handleDragMove = (event: DragMoveEvent) => {
+        const { active, over, delta } = event;
+
+        if (over && (over.id as string).startsWith('day-')) {
+            const activeEvent = events.find(e => e.id === active.id);
+            if (activeEvent && activeEvent.start_time) {
+                const start = safeParseISO(activeEvent.start_time);
+                if (start) {
+                    // Start relative to DayStart (e.g., 6:00 AM)
+                    // We need to calculate based on Original Time + Delta
+                    const currentMinutes = (start.getHours() * 60) + start.getMinutes();
+
+                    // Apply Delta (rounded to 5 mins / 10px)
+                    const deltaMinutes = Math.round((delta.y / PPM) / 5) * 5;
+
+                    let newMinutes = currentMinutes + deltaMinutes;
+
+                    // Clamp
+                    newMinutes = Math.max(DAY_START_MINUTES, Math.min(23 * 60 + 55, newMinutes));
+
+                    // Format for Preview
+                    const h = Math.floor(newMinutes / 60);
+                    const m = newMinutes % 60;
+                    setPreviewTime(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+                    return;
+                }
+            }
+        }
+        setPreviewTime(null);
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event;
+        const { active, over, delta } = event;
         setActiveId(null);
+        setPreviewTime(null);
 
         if (!over) return;
 
-        const activeId = active.id;
-        // const overId = over.id; // This might be a day container or another item
+        const activeEvent = events.find(e => e.id === active.id);
+        if (!activeEvent) return;
 
-        // If dropped on the same container/index, no change needed usually, 
-        // unless container changed. But dnd-kit handles logic.
+        const overId = over.id as string;
 
-        // Implementation detail:
-        // We need to know:
-        // 1. Source Item
-        // 2. Target Day (if changed)
-        // 3. New Rank (based on neighbors in target)
+        if (overId.startsWith('day-')) {
+            const dateStr = overId.replace('day-', '');
 
-        // Finding the item
-        const activeItem = events.find(e => e.id === activeId);
-        if (!activeItem) return;
-
-        const containerId = over.data.current?.sortable?.containerId || over.id;
-
-        if (containerId === 'unscheduled') {
-            // Moving to backlog
-            await moveToBacklog(activeItem, over.id as string);
-        } else {
-            // Moving to a Day
-            await moveToDay(activeItem, containerId as string, over.id as string);
-        }
-    };
-
-    const moveToBacklog = async (item: TripEventDocType, overId: string) => {
-        // Logic to calculate new rank in floating list
-        // This requires finding prev/next in the `floatingEvents` array specifically
-        // Simple optimization: just rank at end if over container, or between if over item
-        let newRank = item.sort_order;
-        const overIndex = floatingEvents.findIndex(e => e.id === overId);
-
-        if (overId === 'unscheduled') {
-            // Dropped on container, move to end?
-            const last = floatingEvents[floatingEvents.length - 1];
-            newRank = generateRankBetween(last?.sort_order, undefined);
-        } else if (overIndex !== -1) {
-            const overItem = floatingEvents[overIndex];
-            newRank = generateRankBetween(overItem.sort_order, floatingEvents[overIndex + 1]?.sort_order);
-        }
-
-        // Update DB
-        if (item.is_floating) {
-            // Just reorder
-            if (item.sort_order !== newRank) {
-                const doc = await collection?.findOne(item.id).exec();
-                await doc?.incrementalPatch({ sort_order: newRank, updated_at: Date.now() });
+            let currentMinutes = 0;
+            if (activeEvent.start_time && !activeEvent.is_floating) {
+                const dt = safeParseISO(activeEvent.start_time);
+                if (dt) {
+                    currentMinutes = (dt.getHours() * 60) + dt.getMinutes();
+                }
+            } else {
+                currentMinutes = 9 * 60; // Default 9 AM
             }
-        } else {
-            // Change type
-            const doc = await collection?.findOne(item.id).exec();
+
+            // Delta in minutes
+            const deltaMinutes = Math.round((delta.y / PPM) / 5) * 5;
+            let newMinutes = currentMinutes + deltaMinutes;
+
+            // Round Result to 5 minutes (Absolute Snap)
+            newMinutes = Math.round(newMinutes / 5) * 5;
+
+            // Clamp
+            newMinutes = Math.max(DAY_START_MINUTES, Math.min(23 * 60 + 55, newMinutes));
+
+            const targetDate = parseISO(dateStr);
+            // Add Minutes to Target Date (Midnight)
+            const newDateObj = addMinutes(targetDate, newMinutes);
+            const newISO = newDateObj.toISOString();
+
+            if (newISO !== activeEvent.start_time) {
+                // Preserve Duration Logic
+                let duration = 60; // Default
+                if (activeEvent.start_time && activeEvent.end_time) {
+                    const s = safeParseISO(activeEvent.start_time);
+                    const e = safeParseISO(activeEvent.end_time);
+                    if (s && e) {
+                        duration = differenceInMinutes(e, s);
+                    }
+                }
+
+                const newEndObj = addMinutes(newDateObj, duration);
+
+                const doc = await collection?.findOne(activeEvent.id).exec();
+                await doc?.incrementalPatch({
+                    start_time: newISO,
+                    end_time: newEndObj.toISOString(), // Update End Time
+                    is_floating: false,
+                    updated_at: Date.now()
+                });
+            }
+
+        } else if (overId === 'backlog') {
+            const doc = await collection?.findOne(activeEvent.id).exec();
             await doc?.incrementalPatch({
                 is_floating: true,
                 start_time: '',
-                // Schema allows optional string.
-                sort_order: newRank,
                 updated_at: Date.now()
             });
         }
-    }
-
-    const moveToDay = async (item: TripEventDocType, dateKey: string, overId: string) => {
-        const dayEvents = days.find(d => d[0] === dateKey)?.[1] || [];
-        dayEvents.sort((a, b) => a.sort_order.localeCompare(b.sort_order));
-
-        let newRank = item.sort_order;
-
-        if (overId === dateKey) {
-            // Dropped on empty day or container
-            const last = dayEvents[dayEvents.length - 1];
-            newRank = generateRankBetween(last?.sort_order, undefined);
-        } else {
-            // Dropped on specific item
-            const overIndex = dayEvents.findIndex(e => e.id === overId);
-            if (overIndex !== -1) {
-                // If dragging downwards, placed after. Upwards, before. 
-                // dnd-kit complicates this. 
-                // Strategy: If active.id != over.id, we are effectively inserting "before" overId if we treat it as list insertion?
-                // Let's assume insert BEFORE overId for standard DnD.
-
-                const prev = dayEvents[overIndex - 1];
-                const next = dayEvents[overIndex];
-                newRank = generateRankBetween(prev?.sort_order, next?.sort_order);
-            }
-        }
-
-        // Date update
-        let newStartTime = item.start_time;
-        // If "Moving between Days" -> Update Date part of start_time
-        if (!item.start_time || !item.start_time.startsWith(dateKey)) {
-            // Keep time, change date. Default to 09:00 if no time.
-            const timePart = item.start_time ? parseISO(item.start_time).toTimeString().substring(0, 5) : '09:00';
-            newStartTime = `${dateKey}T${timePart}:00.000Z`; // Simple ISO construction
-        }
-
-        const doc = await collection?.findOne(item.id).exec();
-        await doc?.incrementalPatch({
-            is_floating: false,
-            start_time: newStartTime,
-            sort_order: newRank,
-            updated_at: Date.now()
-        });
-    }
-
-    // Mobile Backlog Sheet Component
-    const MobileBacklogSheet = () => (
-        <Sheet open={isBacklogOpen} onOpenChange={setIsBacklogOpen}>
-            <SheetTrigger asChild>
-                <Button variant="outline" className="md:hidden fixed bottom-4 right-4 z-50 rounded-full shadow-lg h-12 w-12 p-0 bg-primary text-primary-foreground">
-                    <ListFilter className="h-6 w-6" />
-                </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[85vw] sm:w-[350px] p-0 flex flex-col">
-                <SheetHeader className="p-4 border-b">
-                    <SheetTitle>Unscheduled Events</SheetTitle>
-                    <SheetDescription>Drag these items to your timeline.</SheetDescription>
-                </SheetHeader>
-                <div className="flex-1 overflow-y-auto p-4 bg-muted/10">
-                    <TimelineDay
-                        dayId="unscheduled"
-                        date={new Date(0)}
-                        events={floatingEvents}
-                    />
-                </div>
-            </SheetContent>
-        </Sheet>
-    );
+    };
 
     const activeItem = events.find(e => e.id === activeId);
 
     return (
         <DndContext
             sensors={sensors}
-            collisionDetection={closestCorners}
             onDragStart={handleDragStart}
+            onDragMove={handleDragMove}
             onDragEnd={handleDragEnd}
         >
-            {/* Header with Backlog Toggle */}
-            <div className="flex items-center justify-end px-4 py-2 border-b bg-background/95 backdrop-blur z-10">
-                <Button
-                    variant={showBacklog ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => setShowBacklog(!showBacklog)}
-                    className="gap-2"
-                >
-                    <ListFilter className="h-4 w-4" />
-                    <span>{showBacklog ? 'Hide Backlog' : 'Show Backlog'}</span>
-                </Button>
-            </div>
-
-            <div className="relative flex h-[calc(100vh-140px-45px)] gap-0 overflow-hidden">
-                {/* Collapsible Desktop Backlog Sidebar */}
-                <div
-                    className={`hidden md:flex flex-col border-r bg-muted/10 transition-all duration-300 ease-in-out overflow-hidden ${showBacklog ? 'w-80 opacity-100 p-2' : 'w-0 opacity-0 p-0 border-none'
-                        }`}
-                >
-                    <div className="min-w-[300px] h-full">
-                        <TimelineDay
-                            dayId="unscheduled"
-                            date={new Date(0)}
-                            events={floatingEvents}
-                        />
-                    </div>
+            <div className="flex h-full overflow-hidden bg-background relative">
+                {/* Fixed Time Sidebar */}
+                <div className="w-16 flex-shrink-0 border-r bg-muted/30 pt-8 overflow-hidden relative">
+                    {Array.from({ length: 18 }, (_, i) => i + 6).map(h => (
+                        <div key={h} className="absolute w-full text-right pr-2 text-xs text-muted-foreground" style={{ top: `${(h - 6) * 120}px` }}>
+                            {`${h}:00`}
+                        </div>
+                    ))}
                 </div>
 
-                {/* Horizontal Scroll Day View */}
-                <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                    <div className="flex h-full p-4 gap-4">
-                        {days.map(([dateStr, dayEvents]) => (
-                            <TimelineDay
-                                key={dateStr}
-                                dayId={dateStr}
-                                date={parseISO(dateStr)}
-                                events={dayEvents}
-                            />
+                {/* Main Grid Scroll Area */}
+                <ScrollArea className="flex-1 h-full">
+                    <div className="flex min-w-max h-[2160px]">
+                        {days.map(day => {
+                            const dateKey = format(day, 'yyyy-MM-dd');
+                            const dayList = dayEvents.get(dateKey) || [];
+
+                            return (
+                                <div key={dateKey} className="flex flex-col w-[200px] border-r">
+                                    {/* Header */}
+                                    <div className="h-8 flex items-center justify-center border-b font-medium text-sm bg-muted/50 sticky top-0 z-20">
+                                        {format(day, 'EEE d')}
+                                    </div>
+                                    {/* Column */}
+                                    <DayColumn date={day}>
+                                        {dayList.map(event => {
+                                            const start = safeParseISO(event.start_time);
+                                            // Explicit Date Matching Check
+                                            if (start && format(start, 'yyyy-MM-dd') !== dateKey) {
+                                                return null;
+                                            }
+
+                                            let top = 0;
+                                            let height = 60 * PPM; // Default 1 hour
+
+                                            if (start) {
+                                                const minutes = (start.getHours() * 60) + start.getMinutes();
+                                                top = (minutes - DAY_START_MINUTES) * PPM;
+
+                                                if (event.end_time) {
+                                                    const end = safeParseISO(event.end_time);
+                                                    if (end) {
+                                                        const duration = differenceInMinutes(end, start);
+                                                        height = Math.max(30, duration) * PPM;
+                                                    }
+                                                }
+                                            }
+
+                                            return (
+                                                <TimelineEvent
+                                                    key={event.id}
+                                                    event={event}
+                                                    style={{
+                                                        top: `${top}px`,
+                                                        height: `${height}px`
+                                                    }}
+                                                />
+                                            );
+                                        })}
+                                    </DayColumn>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </ScrollArea>
+
+                {/* Right Floating Sidebar (Backlog) - Collapsible */}
+                <div className={`border-l bg-muted/10 flex flex-col transition-all duration-300 ease-in-out ${showBacklog ? 'w-64' : 'w-0 overflow-hidden'}`}>
+                    <div className="p-2 border-b font-semibold text-sm flex items-center justify-between">
+                        <span className="truncate">Unscheduled</span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowBacklog(false)}>
+                            <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <BacklogArea>
+                        {floatingEvents.map(event => (
+                            <div key={event.id} className="relative mb-2 h-24">
+                                <TimelineEvent
+                                    event={event}
+                                    className="static h-full w-full"
+                                    style={{ transform: 'none' }}
+                                />
+                            </div>
                         ))}
-                        <div className="min-w-[50px]"></div> {/* Padding at end */}
-                    </div>
+                    </BacklogArea>
                 </div>
 
-                {/* Mobile Trigger & Sheet */}
-                <MobileBacklogSheet />
+                {/* Floating Toggle Button (Visible when sidebar collapsed) */}
+                {!showBacklog && (
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="absolute top-2 right-2 z-50 shadow-md bg-background"
+                        onClick={() => setShowBacklog(true)}
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                )}
             </div>
 
-            <DragOverlay>
-                {activeItem ? <TimelineEvent event={activeItem} /> : null}
+            <DragOverlay modifiers={[snapToGridModifier]}>
+                {activeItem ? (
+                    <TimelineEvent
+                        event={activeItem}
+                        isOverlay={true}
+                        previewTime={previewTime}
+                        style={{
+                            height: `${(
+                                activeItem.start_time && activeItem.end_time
+                                    ? differenceInMinutes(safeParseISO(activeItem.end_time)!, safeParseISO(activeItem.start_time)!)
+                                    : 60
+                            ) * PPM}px`
+                        }}
+                    />
+                ) : null}
             </DragOverlay>
         </DndContext>
     );

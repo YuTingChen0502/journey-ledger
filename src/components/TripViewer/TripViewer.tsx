@@ -35,10 +35,10 @@ export function TripViewer({ tripId }: TripViewerProps) {
             if (e.start_time) scheduled.push(e);
         });
 
-        const start = new Date(2026, 1, 1); // Feb 1 2026 (Sunday)
+        const start = new Date(2026, 0, 31); // Jan 31, 2026 (Saturday)
 
         const dayMap = new Map<string, TripEventDocType[]>();
-        const totalDays = 8; // Feb 1 to Feb 8
+        const totalDays = 8; // Jan 31 to Feb 7
 
         for (let i = 0; i < totalDays; i++) {
             const date = addDays(start, i);
@@ -56,7 +56,7 @@ export function TripViewer({ tripId }: TripViewerProps) {
     }, [events]);
 
     // State for Tabbed View
-    const [selectedDay, setSelectedDay] = useState<string>('2026-02-01');
+    const [selectedDay, setSelectedDay] = useState<string>('2026-01-31');
 
     return (
         <div className="flex flex-col h-full bg-background relative">
@@ -64,7 +64,7 @@ export function TripViewer({ tripId }: TripViewerProps) {
             <div className="flex justify-between items-end px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur z-20 sticky top-0">
                 <div>
                     <h1 className="text-3xl font-serif text-primary">Nagoya 2026</h1>
-                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">Feb 01 — Feb 08</p>
+                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">Jan 31 — Feb 07</p>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground bg-muted/30 px-3 py-1 rounded-full">
                     <Cloud className="h-4 w-4" />
