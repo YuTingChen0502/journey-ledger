@@ -30,12 +30,14 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+
 import { ArrowUpDown, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { safeFormatTime } from '@/lib/dateUtils'
 import { toast } from 'sonner' // Assuming sonner is available (used in ImportModal)
+import { useTranslation } from '@/hooks/useTranslation'
 
 export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
+    const { t } = useTranslation()
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const { result: data, isFetching } = useRxData<TripEventDocType>(
         'tripevents',
@@ -100,7 +102,7 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
                         variant="ghost"
                         onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
                     >
-                        Title
+                        {t('grid.header.title')}
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 )
@@ -108,16 +110,26 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
         },
         {
             accessorKey: 'is_floating',
-            header: 'Type',
+            header: t('grid.header.type'),
             cell: ({ row }) => {
-                return row.getValue('is_floating') ?
-                    <Badge variant="outline">Floating</Badge> :
-                    <Badge>Scheduled</Badge>
+                const isFloating = row.getValue('is_floating');
+                return isFloating ?
+                    (
+                        <div className="flex items-center gap-2 text-muted-foreground/70">
+                            <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+                            <span className="text-xs font-medium">{t('grid.badge.floating')}</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 text-emerald-600/80">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500/60" />
+                            <span className="text-xs font-medium">{t('grid.badge.scheduled')}</span>
+                        </div>
+                    );
             }
         },
         {
             accessorKey: 'start_time',
-            header: 'Start Time',
+            header: t('grid.header.start_time'),
             cell: ({ row }) => {
                 const val = row.getValue('start_time') as string;
                 return safeFormatTime(val);
@@ -125,7 +137,7 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
         },
         {
             accessorKey: 'location',
-            header: 'Location',
+            header: t('grid.header.location'),
         },
         {
             id: 'actions',
@@ -138,7 +150,7 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
                             className="text-xs text-muted-foreground cursor-pointer hover:text-destructive hover:underline transition-colors"
                             onClick={() => setDeleteDialogOpen(true)}
                         >
-                            Delete All
+                            {t('btn.delete_all')}
                         </span>
                     </div>
                 ) : null;
@@ -223,7 +235,7 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No results.
+                                    {t('grid.no_results')}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -237,12 +249,12 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
                     <AlertDialogHeader>
                         <AlertDialogTitle className="flex items-center gap-2 text-destructive">
                             <AlertTriangle className="h-5 w-5" />
-                            Delete All Events?
+                            {t('grid.alert.delete_all.title')}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
-                            This action cannot be undone immediately. It will mark <b>{data.length} events</b> as deleted.
+                            {t('grid.alert.delete_all.desc')}
                             <br /><br />
-                            Please type <b>DELETE</b> to confirm.
+                            {t('grid.alert.confirm_label')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
 
@@ -259,7 +271,7 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
                     </div>
 
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting} onClick={() => setDeleteConfirmText('')}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting} onClick={() => setDeleteConfirmText('')}>{t('btn.cancel')}</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={(e: React.MouseEvent) => {
                                 e.preventDefault(); // Handle async
@@ -268,7 +280,7 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
                             disabled={deleteConfirmText !== 'DELETE' || isDeleting}
                             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                         >
-                            {isDeleting ? "Deleting..." : "Confirm Delete"}
+                            {isDeleting ? t('grid.btn.deleting') : t('grid.btn.confirm_delete')}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

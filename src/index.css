@@ -40,6 +40,75 @@
     --ring: 353 41% 41%;
 
     --radius: 0.5rem;
+
+    /* --- Typography Variables (Mapped from Tailwind defaults) --- */
+    /* Mobile/Base Scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+    --text-4xl: 2.25rem;
+    --text-5xl: 3rem;
+    --text-6xl: 3.75rem;
+    
+    /* Leading (Line Height) */
+    --leading-none: 1;
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
+    --leading-loose: 2;
+
+    /* Tracking (Letter Spacing) */
+    --tracking-tighter: -0.05em;
+    --tracking-tight: -0.025em;
+    --tracking-normal: 0em;
+    --tracking-wide: 0.025em;
+    --tracking-widest: 0.1em;
+  }
+
+  /* --- Font Scale: Comfort (~1.125x) --- */
+  [data-font-scale="comfort"] {
+    --text-xs: 0.84rem;
+    --text-sm: 0.98rem;
+    --text-base: 1.125rem;
+    --text-lg: 1.26rem;
+    --text-xl: 1.4rem;
+    --text-2xl: 1.68rem;
+    --text-3xl: 2.1rem;
+    --text-4xl: 2.53rem;
+    --text-5xl: 3.37rem;
+    --text-6xl: 4.2rem;
+  }
+
+  /* --- Font Scale: Accessible (~1.25x) --- */
+  [data-font-scale="accessible"] {
+    --text-xs: 0.93rem;
+    --text-sm: 1.1rem;
+    --text-base: 1.25rem;
+    --text-lg: 1.4rem;
+    --text-xl: 1.56rem;
+    --text-2xl: 1.87rem;
+    --text-3xl: 2.34rem;
+    --text-4xl: 2.8rem;
+    --text-5xl: 3.75rem;
+    --text-6xl: 4.68rem;
+
+    /* Relax leading for readability in large text modes */
+    --leading-tight: 1.35;
+    --leading-snug: 1.5;
+    --leading-normal: 1.7;
+  }
+
+  /* --- Localized Aesthetics (zh-TW) --- */
+  /* Magazine feel: Slightly wider tracking for Traditional Chinese */
+  [lang="zh-TW"] {
+    --tracking-normal: 0.05em;
+    --tracking-wide: 0.08em;
+    --tracking-tight: 0em; /* Avoids cramping complex characters */
   }
 
   /* ... Dark mode omitted for journal style preference, fallback to standard dark if needed ... */
@@ -76,6 +145,9 @@
     font-family: 'Inter', sans-serif;
     /* Subtle Paper Texture Pattern */
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+
+    /* Smooth Transition for Typography & Spacing */
+    transition: color 0.3s ease, background-color 0.3s ease, font-size 0.3s ease, line-height 0.3s ease, letter-spacing 0.3s ease;
   }
 
   h1,

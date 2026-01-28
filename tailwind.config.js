@@ -4,6 +4,33 @@ export default {
     content: ["./index.html", "./src/**/*.{ts,tsx,js,jsx}"],
     theme: {
         extend: {
+            fontSize: {
+                xs: ['var(--text-xs)', { lineHeight: 'var(--leading-none)' }],
+                sm: ['var(--text-sm)', { lineHeight: 'var(--leading-tight)' }],
+                base: ['var(--text-base)', { lineHeight: 'var(--leading-normal)' }],
+                lg: ['var(--text-lg)', { lineHeight: 'var(--leading-relaxed)' }],
+                xl: ['var(--text-xl)', { lineHeight: 'var(--leading-relaxed)' }],
+                '2xl': ['var(--text-2xl)', { lineHeight: 'var(--leading-tight)' }],
+                '3xl': ['var(--text-3xl)', { lineHeight: 'var(--leading-tight)' }],
+                '4xl': ['var(--text-4xl)', { lineHeight: 'var(--leading-tight)' }],
+                '5xl': ['var(--text-5xl)', { lineHeight: 'var(--leading-none)' }],
+                '6xl': ['var(--text-6xl)', { lineHeight: 'var(--leading-none)' }],
+            },
+            letterSpacing: {
+                tighter: 'var(--tracking-tighter)',
+                tight: 'var(--tracking-tight)',
+                normal: 'var(--tracking-normal)',
+                wide: 'var(--tracking-wide)',
+                widest: 'var(--tracking-widest)',
+            },
+            lineHeight: {
+                none: 'var(--leading-none)',
+                tight: 'var(--leading-tight)',
+                snug: 'var(--leading-snug)',
+                normal: 'var(--leading-normal)',
+                relaxed: 'var(--leading-relaxed)',
+                loose: 'var(--leading-loose)',
+            },
             borderRadius: {
                 lg: 'var(--radius)',
                 md: 'calc(var(--radius) - 2px)',

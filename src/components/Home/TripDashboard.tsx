@@ -1,22 +1,31 @@
 import { Card } from "@/components/ui/card"
 import { CalendarDays, Map } from "lucide-react"
+import { GlobalSettingsControl } from "./GlobalSettingsControl"
+import { useTranslation } from "@/hooks/useTranslation"
 
 interface TripDashboardProps {
     onNavigate: (view: 'overview' | 'table' | 'planner') => void;
 }
 
 export function TripDashboard({ onNavigate }: TripDashboardProps) {
+    const { t } = useTranslation();
+
     return (
-        <div className="h-full flex flex-col items-center justify-center p-6 space-y-12 animate-in fade-in duration-500">
+        <div className="h-full flex flex-col items-center justify-center p-6 space-y-12 animate-in fade-in duration-500 relative">
+            {/* Settings Control - Aligned with Content */}
+            <div className="w-full max-w-4xl flex justify-end px-4">
+                <GlobalSettingsControl />
+            </div>
+
             {/* Header */}
             <div className="text-center space-y-4">
                 <h1 className="text-5xl md:text-6xl font-serif font-bold text-primary tracking-tight">
-                    Nagoya 2026
+                    {t('trip.title')}
                 </h1>
                 <div className="flex items-center justify-center gap-3">
                     <div className="h-px w-12 bg-border"></div>
                     <p className="text-muted-foreground text-lg font-medium uppercase tracking-widest">
-                        Jan 31 — Feb 07
+                        {t('trip.dates')}
                     </p>
                     <div className="h-px w-12 bg-border"></div>
                 </div>
@@ -34,9 +43,9 @@ export function TripDashboard({ onNavigate }: TripDashboardProps) {
                         <CalendarDays className="h-10 w-10 text-indigo-600" />
                     </div>
                     <div className="text-center space-y-2">
-                        <h3 className="text-2xl font-serif font-semibold text-foreground">Overview</h3>
+                        <h3 className="text-2xl font-serif font-semibold text-foreground">{t('dashboard.overview.title')}</h3>
                         <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">
-                            View your travel journal and itinerary in a read-only format.
+                            {t('dashboard.overview.desc')}
                         </p>
                     </div>
                 </Card>
@@ -50,16 +59,16 @@ export function TripDashboard({ onNavigate }: TripDashboardProps) {
                         <Map className="h-10 w-10 text-rose-600" />
                     </div>
                     <div className="text-center space-y-2">
-                        <h3 className="text-2xl font-serif font-semibold text-foreground">Planning</h3>
+                        <h3 className="text-2xl font-serif font-semibold text-foreground">{t('dashboard.planning.title')}</h3>
                         <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">
-                            Edit schedule, manage data grid, and organize events.
+                            {t('dashboard.planning.desc')}
                         </p>
                     </div>
                 </Card>
             </div>
 
             <p className="text-xs text-muted-foreground/50 absolute bottom-6">
-                Single Trip Mode • v1.0
+                {t('dashboard.footer')}
             </p>
         </div>
     )

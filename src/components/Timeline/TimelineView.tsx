@@ -21,6 +21,9 @@ import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { useTranslation } from '@/hooks/useTranslation';
+import { enUS, zhTW } from 'date-fns/locale';
+
 
 interface TimelineViewProps {
     tripId: string;
@@ -53,6 +56,9 @@ function BacklogArea({ children }: { children: React.ReactNode }) {
 }
 
 export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
+    const { t, language } = useTranslation();
+    const dateLocale = language === 'zh-TW' ? zhTW : enUS;
+
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const { result: events } = useRxData<TripEventDocType>(
         'tripevents',
@@ -258,7 +264,7 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
                                     <div key={dateKey} className="flex flex-col w-[200px] border-r">
                                         {/* Header */}
                                         <div className="h-8 flex items-center justify-center border-b font-medium text-sm bg-muted/50 sticky top-0 z-20">
-                                            {format(day, 'EEE d')}
+                                            {format(day, 'EEE d', { locale: dateLocale })}
                                         </div>
                                         {/* Column */}
                                         <DayColumn date={day}>
@@ -311,7 +317,7 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
                     {/* Right Floating Sidebar (Backlog) - Collapsible */}
                     <div className={`border-l bg-muted/10 flex flex-col transition-all duration-300 ease-in-out ${showBacklog ? 'w-64' : 'w-0 overflow-hidden'}`}>
                         <div className="p-2 border-b font-semibold text-sm flex items-center justify-between">
-                            <span className="truncate">Unscheduled</span>
+                            <span className="truncate">{t('timeline.unscheduled')}</span>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowBacklog(false)}>
                                 <ChevronRight className="h-4 w-4" />
                             </Button>

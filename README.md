@@ -1,4 +1,4 @@
-# Nagoya 2026 Trip Planner (v0.6.4)
+# Nagoya 2026 Trip Planner (v1.1.0)
 
 An advanced, offline-first travel itinerary management tool built for the 2026 Nagoya Trip.
 Powered by **React**, **RxDB** (Local-First), and **Supabase** (Auth).
@@ -28,6 +28,11 @@ Powered by **React**, **RxDB** (Local-First), and **Supabase** (Auth).
     -   Locations and Long Descriptions (mapped to Journal notes)
 -   **Staging Area**: Review and refine parsed items before committing them to your database.
 
+### 🌤️ Smart Automation (v1.1)
+-   **Auto-Geocoding**: Smartly parses complex addresses (removing parenthesis, etc.) to find coordinates via OpenStreetMap Nominatim.
+-   **Instant Weather**: Automatically fetches weather forecast for the event location/time upon opening the journal.
+-   **Checklist & Memo**: Integrated Todo list and rich memo field for every event.
+
 ## 🛠️ Tech Stack
 -   **Frontend**: React 18, TypeScript, Vite
 -   **UI Framework**: TailwindCSS, shadcn/ui
@@ -38,7 +43,12 @@ Powered by **React**, **RxDB** (Local-First), and **Supabase** (Auth).
 
 ## 📝 Changelog
 
-### v0.6.4: Aesthetic Rollback & Safety (Current)
+### v1.1.0: Automation & Rich Details (Current)
+-   **Smart Geocoding**: Upgraded to OpenStreetMap Nominatim with intelligent fallback logic for complex addresses.
+-   **Productivity**: Added Checklist (Todos) and Memo fields to event details.
+-   **Weather v2**: Fixed race conditions and simplified the UI (Horizontal layout, No-Emoji labels).
+
+### v0.6.4: Aesthetic Rollback & Safety
 -   **Visual Refinement**: Removed Location text from Duration Bars for a cleaner UI.
 -   **Grid Polish**: Integrated "Delete All" into the Table Header for alignment perfection.
 -   **Safety**: Added AlertDialog lock for destructive batch operations.

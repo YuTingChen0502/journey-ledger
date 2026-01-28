@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRxCollection } from 'rxdb-hooks';
-import type { TripEventDocType } from '@/db/schema';
+import type { TripEventDocType, TodoItem } from '@/db/schema';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,11 +12,15 @@ import {
     Image as ImageIcon,
     Ticket,
     Navigation,
+    CheckSquare,
+    Plus,
 } from 'lucide-react';
 import { generateNavUrl } from '@/lib/navigationUtils';
 import { format } from 'date-fns';
 import { safeParseISO } from '@/lib/dateUtils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SpotWeather } from '@/components/Weather/SpotWeather';
+import { searchLocation } from '@/services/geocoding';
 
 interface EventDetailViewProps {
     eventId: string | null;
@@ -24,16 +28,21 @@ interface EventDetailViewProps {
     onClose: () => void;
 }
 
-const CATEGORIES = [
-    { value: 'sightseeing', label: 'Sightseeing', color: 'bg-blue-100 text-blue-800' },
-    { value: 'food', label: 'Food', color: 'bg-orange-100 text-orange-800' },
-    { value: 'shopping', label: 'Shopping', color: 'bg-pink-100 text-pink-800' },
-    { value: 'activity', label: 'Activity', color: 'bg-green-100 text-green-800' },
-    { value: 'transport', label: 'Transport', color: 'bg-gray-100 text-gray-800' },
-    { value: 'other', label: 'Other', color: 'bg-slate-100 text-slate-800' },
+import { useTranslation, type TranslationKey } from '@/hooks/useTranslation';
+
+// Categories moved inside component or mapped dynamically because they need `t` context
+// But simpler: keep static values, map labels during render.
+const CATEGORY_KEYS: { value: string, labelKey: TranslationKey, color: string }[] = [
+    { value: 'sightseeing', labelKey: 'cat.sightseeing', color: 'bg-blue-100 text-blue-800' },
+    { value: 'food', labelKey: 'cat.food', color: 'bg-orange-100 text-orange-800' },
+    { value: 'shopping', labelKey: 'cat.shopping', color: 'bg-pink-100 text-pink-800' },
+    { value: 'activity', labelKey: 'cat.activity', color: 'bg-green-100 text-green-800' },
+    { value: 'transport', labelKey: 'cat.transport', color: 'bg-gray-100 text-gray-800' },
+    { value: 'other', labelKey: 'cat.other', color: 'bg-slate-100 text-slate-800' },
 ];
 
 export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps) {
+    const { t } = useTranslation();
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const [event, setEvent] = useState<TripEventDocType | null>(null);
 
@@ -43,6 +52,10 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
     const [location, setLocation] = useState('');
     const [category, setCategory] = useState<string>('other');
     const [image, setImage] = useState<string | null>(null);
+    const [lat, setLat] = useState<number | undefined>(undefined);
+    const [lng, setLng] = useState<number | undefined>(undefined);
+    const [memo, setMemo] = useState('');
+    const [todos, setTodos] = useState<TodoItem[]>([]);
 
     // Fetch Event
     useEffect(() => {
@@ -54,18 +67,45 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
         const fetchEvent = async () => {
             const doc = await collection?.findOne(eventId).exec();
             if (doc) {
-                const data = doc.toJSON();
+                const data = doc.toJSON() as any;
                 setEvent(data);
                 setTitle(data.title || '');
                 setDescription(data.description || '');
                 setLocation(data.location || '');
                 setCategory(data.category || 'other');
                 setImage(data.image || null);
+                setLat(data.lat);
+                setLng(data.lng);
+                setMemo(data.memo || '');
+
+                // Initialize checks with 3 empty items if empty
+                // Fix readonly array issue by creating copy
+                const initialTodos = data.todos && data.todos.length > 0 ? [...data.todos] : [
+                    { id: crypto.randomUUID(), text: '', is_checked: false },
+                    { id: crypto.randomUUID(), text: '', is_checked: false },
+                    { id: crypto.randomUUID(), text: '', is_checked: false }
+                ];
+                setTodos(initialTodos);
             }
         };
 
         fetchEvent();
+        fetchEvent();
     }, [eventId, open, collection]);
+
+    // Added: Auto-geocoding on mount if location is set but no coords (covers legacy data)
+    useEffect(() => {
+        if (open && location && (!lat || !lng)) {
+            // Smart Auto-Geocoding (tries venue, then cleaner strings, then city)
+            searchLocation(location).then(result => {
+                if (result) {
+                    setLat(result.latitude);
+                    setLng(result.longitude);
+                    updateField({ lat: result.latitude, lng: result.longitude });
+                }
+            }).catch(() => { });
+        }
+    }, [open, eventId, location]);
 
     // Atomic Updates
     const updateField = async (field: Partial<TripEventDocType>) => {
@@ -93,11 +133,58 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
 
     const handleBlurTitle = () => updateField({ title });
     const handleBlurDesc = () => updateField({ description });
-    const handleBlurLoc = () => updateField({ location });
     const handleChangeCategory = (val: string) => {
         setCategory(val);
         updateField({ category: val });
     };
+
+    const handleBlurLoc = async () => {
+        updateField({ location });
+
+        // Auto-Geocoding if lat/lng are missing
+        if (location && (!lat || !lng)) {
+            searchLocation(location).then(result => {
+                if (result) {
+                    setLat(result.latitude);
+                    setLng(result.longitude);
+                    updateField({ lat: result.latitude, lng: result.longitude });
+                }
+            });
+        }
+    };
+
+    const handleBlurMemo = () => updateField({ memo });
+
+    const handleTodoChange = (id: string, text: string) => {
+        const newTodos = todos.map(t => t.id === id ? { ...t, text } : t);
+        setTodos(newTodos);
+    };
+
+    const handleTodoToggle = (id: string) => {
+        const newTodos = todos.map(t => t.id === id ? { ...t, is_checked: !t.is_checked } : t);
+        setTodos(newTodos);
+        updateField({ todos: newTodos });
+    };
+
+    const handleTodoBlur = () => {
+        // Filter out empty ones only if we have too many? No, user wants them.
+        // Just save everything.
+        updateField({ todos });
+    };
+
+    const handleAddTodo = () => {
+        const newTodos = [...todos, { id: crypto.randomUUID(), text: '', is_checked: false }];
+        setTodos(newTodos);
+        // Don't save yet, wait for blur
+    };
+
+    const handleDeleteTodo = (id: string) => {
+        const newTodos = todos.filter(t => t.id !== id);
+        setTodos(newTodos);
+        updateField({ todos: newTodos });
+    };
+
+
 
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -114,7 +201,7 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
 
     const handleDelete = async () => {
         if (!event || !collection) return;
-        if (confirm('Are you sure you want to delete this event?')) {
+        if (confirm(t('detail.confirm_delete'))) {
             const doc = await collection.findOne(event.id).exec();
             await doc?.incrementalPatch({ is_deleted: true, updated_at: Date.now() });
             onClose();
@@ -139,37 +226,58 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                     <div className="flex-1 p-6 flex flex-col gap-6 relative">
                         {/* Close button provided by Sheet usually, but we can customize or let default be */}
 
-                        {/* Header: Date Badge & Category Stamp */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex flex-col">
-                                <span className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
-                                    Date
+                        {/* Header: Date - Category - Weather Row */}
+                        <div className="flex items-end gap-4 flex-wrap sm:flex-nowrap">
+                            {/* 1. Date */}
+                            <div className="flex flex-col shrink-0">
+                                <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest mb-0.5">
+                                    {t('detail.label.date')}
                                 </span>
-                                <div className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                    <CalendarIcon className="w-4 h-4" />
+                                <div className="text-sm font-semibold text-foreground flex items-center gap-2 whitespace-nowrap h-9">
+                                    <CalendarIcon className="w-4 h-4 text-primary/70" />
                                     {event?.start_time ? format(safeParseISO(event.start_time)!, 'MMM d, yyyy') : 'No Date'}
                                 </div>
                             </div>
 
+                            {/* 2. Category */}
                             <Select value={category} onValueChange={handleChangeCategory}>
-                                <SelectTrigger className="w-[140px] h-8 border-dashed border-2 rounded-sm bg-secondary/20 hover:bg-secondary/40 transition-colors focus:ring-0 text-xs font-medium uppercase tracking-wide">
-                                    <SelectValue placeholder="Category" />
+                                <SelectTrigger className="w-[140px] h-9 border-dashed border-2 rounded-sm bg-secondary/20 hover:bg-secondary/40 transition-colors focus:ring-0 text-xs font-medium uppercase tracking-wide shrink-0">
+                                    <SelectValue placeholder={t('detail.category.placeholder')} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {CATEGORIES.map(c => (
+                                    {CATEGORY_KEYS.map(c => (
                                         <SelectItem key={c.value} value={c.value} className="text-xs">
-                                            {c.label}
+                                            {t(c.labelKey)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+
+                            {/* 3. Weather */}
+                            {((lat && lng) || location) && (
+                                <div className="shrink-0 pb-1">
+                                    {lat && lng ? (
+                                        <SpotWeather lat={lat} lng={lng} time={event?.start_time} />
+                                    ) : (
+                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground animate-pulse px-3 py-1.5 bg-muted/30 rounded-full whitespace-nowrap">
+                                            Loading...
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
+
+
+
+                        {/* Title Section */}
+
+
 
                         {/* Title Section */}
                         <div className="space-y-2">
                             <Input
                                 className="text-3xl font-serif font-bold bg-transparent border-0 px-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/40 leading-tight"
-                                placeholder="Event Title..."
+                                placeholder={t('detail.title.placeholder')}
                                 value={title}
                                 onChange={(e) => handleTitleChange(e.target.value)}
                                 onBlur={handleBlurTitle}
@@ -191,17 +299,18 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                             <div className="flex flex-col gap-3">
                                 <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
                                     <Ticket className="w-3 h-3" />
-                                    Destination
+                                    {t('detail.label.destination')}
                                 </div>
                                 <div className="flex gap-2">
                                     <Input
                                         className="bg-transparent border-0 border-b border-border rounded-none px-0 h-8 focus-visible:ring-0 focus-visible:border-primary font-medium"
-                                        placeholder="Location Name"
+                                        placeholder={t('detail.location.placeholder')}
                                         value={location}
                                         onChange={(e) => setLocation(e.target.value)}
                                         onBlur={handleBlurLoc}
                                     />
                                 </div>
+
 
                                 <Button
                                     className="w-full mt-2 bg-primary/90 hover:bg-primary shadow-sm active:scale-[0.98] transition-all"
@@ -209,10 +318,14 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                                     title={!navigator.onLine ? "You are offline" : "Open in Google Maps"}
                                 >
                                     <Navigation className="w-4 h-4 mr-2" />
-                                    Start Journey
+                                    {t('detail.btn.start_journey')}
                                 </Button>
                             </div>
                         </div>
+
+
+
+
 
                         {/* Journal Notes (Dot Grid) */}
                         <div className="flex-1 min-h-[150px] relative rounded-md overflow-hidden bg-muted/5 group">
@@ -225,10 +338,68 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                             />
                             <Textarea
                                 className="w-full h-full bg-transparent border-0 resize-none focus-visible:ring-0 p-4 text-sm leading-relaxed"
-                                placeholder="Jot down your memories or extensive notes here..."
+                                placeholder={t('detail.notes.placeholder')}
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 onBlur={handleBlurDesc}
+                            />
+                        </div>
+
+                        {/* Checklist Section */}
+                        <div className="flex flex-col gap-2 relative group/checklist">
+                            <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-1">
+                                <CheckSquare className="w-4 h-4" />
+                                {t('detail.label.checklist') || 'Checklist'}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                {todos.map((item) => (
+                                    <div key={item.id} className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => handleTodoToggle(item.id)}
+                                            className={`w-4 h-4 rounded-sm border transition-colors flex items-center justify-center ${item.is_checked ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40 hover:border-primary'}`}
+                                        >
+                                            {item.is_checked && <CheckSquare className="w-3 h-3" />}
+                                        </button>
+                                        <div className="flex-1 relative">
+                                            <Input
+                                                className={`bg-transparent border-0 border-b border-border/40 rounded-none px-0 h-7 text-sm focus-visible:ring-0 focus-visible:border-primary ${item.is_checked ? 'text-muted-foreground line-through decoration-muted-foreground/50' : ''}`}
+                                                value={item.text}
+                                                onChange={(e) => handleTodoChange(item.id, e.target.value)}
+                                                onBlur={handleTodoBlur}
+                                                placeholder={t('detail.checklist.placeholder') || "Item..."}
+                                            />
+                                            {/* Delete button appears on hover */}
+                                            <button
+                                                onClick={() => handleDeleteTodo(item.id)}
+                                                className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover/checklist:opacity-100 hover:text-destructive transition-opacity p-1"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="self-start text-xs text-muted-foreground/60 hover:text-primary gap-1 pl-0 h-6"
+                                    onClick={handleAddTodo}
+                                >
+                                    <Plus className="w-3 h-3" /> Add Item
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Memo Section */}
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                {t('detail.label.memo') || 'Memo'}
+                            </div>
+                            <Textarea
+                                className="bg-muted/10 border-border/40 min-h-[100px] resize-none focus-visible:ring-0 focus-visible:border-primary"
+                                placeholder={t('detail.memo.placeholder') || "Write notes here..."}
+                                value={memo}
+                                onChange={(e) => setMemo(e.target.value)}
+                                onBlur={handleBlurMemo}
                             />
                         </div>
 
@@ -236,7 +407,7 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                         <div className="flex justify-end pt-2">
                             <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive text-xs" onClick={handleDelete}>
                                 <Trash2 className="w-3 h-3 mr-1" />
-                                Remove Entry
+                                {t('detail.btn.remove')}
                             </Button>
                         </div>
                     </div>
@@ -252,7 +423,7 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                                     ) : (
                                         <div className="w-full h-full flex flex-col items-center justify-center text-zinc-300">
                                             <ImageIcon className="w-8 h-8 mb-2" />
-                                            <span className="text-[10px] uppercase tracking-wide">Add Photo</span>
+                                            <span className="text-[10px] uppercase tracking-wide">{t('detail.photo.add')}</span>
                                         </div>
                                     )}
                                     {/* Invisible File Input Overlay */}
@@ -270,15 +441,15 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
 
                         <div className="text-center space-y-1">
                             <p className="text-xs text-muted-foreground italic">
-                                "Collect moments, not things."
+                                "{t('detail.quote')}"
                             </p>
                             <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest">
-                                Nagoya, 2026
+                                {t('detail.location_tag')}
                             </p>
                         </div>
                     </div>
-                </div>
-            </SheetContent>
-        </Sheet>
+                </div >
+            </SheetContent >
+        </Sheet >
     );
 }

@@ -182,7 +182,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                 <Badge
                     variant="secondary"
                     className={cn(
-                        "absolute z-50 shadow-md border-primary/50 text-[10px] whitespace-nowrap transition-all",
+                        "absolute z-50 shadow-md border-primary/50 text-xs whitespace-nowrap transition-all",
                         isResizing ? "-bottom-6 left-1/2 -translate-x-1/2" : "-top-3 -left-2"
                     )}
                 >
@@ -206,7 +206,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                         >
                             <GripVertical className="h-3 w-3" />
                         </div>
-                        <div className="flex-1 min-w-0 font-medium text-xs truncate">
+                        <div className="flex-1 min-w-0 font-medium text-sm truncate">
                             {event.title}
                         </div>
                         {!isDragging && !isOverlay && (
@@ -221,7 +221,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                         )}
                     </div>
 
-                    <div className="flex-1 min-h-0 text-[10px] text-muted-foreground leading-tight">
+                    <div className="flex-1 min-h-0 text-xs text-muted-foreground leading-tight">
                         {event.start_time && <div>{safeFormatTime(event.start_time)}</div>}
                     </div>
 

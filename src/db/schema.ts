@@ -1,5 +1,5 @@
 export const TRIP_EVENT_SCHEMA = {
-    version: 0,
+    version: 3,
     primaryKey: 'id',
     type: 'object',
     properties: {
@@ -22,6 +22,15 @@ export const TRIP_EVENT_SCHEMA = {
         },
         location: {
             type: 'string'
+        },
+        region: {
+            type: 'string'
+        },
+        lat: {
+            type: 'number'
+        },
+        lng: {
+            type: 'number'
         },
         place_id: {
             type: 'string'
@@ -59,6 +68,20 @@ export const TRIP_EVENT_SCHEMA = {
         },
         is_deleted: {
             type: 'boolean'
+        },
+        memo: {
+            type: 'string'
+        },
+        todos: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string' },
+                    text: { type: 'string' },
+                    is_checked: { type: 'boolean' }
+                }
+            }
         }
     },
     required: ['id', 'trip_id', 'owner_id', 'title', 'sort_order', 'created_at', 'updated_at', 'is_deleted', 'start_time'],
@@ -68,6 +91,12 @@ export const TRIP_EVENT_SCHEMA = {
     ]
 } as const;
 
+export type TodoItem = {
+    id: string;
+    text: string;
+    is_checked: boolean;
+};
+
 export type TripEventDocType = {
     id: string;
     trip_id: string;
@@ -75,6 +104,9 @@ export type TripEventDocType = {
     title: string;
     description?: string;
     location?: string;
+    region?: string;
+    lat?: number;
+    lng?: number;
     place_id?: string;
     category?: string;
     image?: string; // Base64
@@ -86,4 +118,6 @@ export type TripEventDocType = {
     created_at: number;
     updated_at: number;
     is_deleted: boolean;
+    memo?: string;
+    todos?: TodoItem[];
 };

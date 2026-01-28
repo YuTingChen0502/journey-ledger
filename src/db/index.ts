@@ -3,10 +3,12 @@ import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode';
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { TRIP_EVENT_SCHEMA } from './schema';
 
 addRxPlugin(RxDBUpdatePlugin);
 addRxPlugin(RxDBQueryBuilderPlugin);
+addRxPlugin(RxDBMigrationSchemaPlugin);
 
 if (import.meta.env.DEV) {
     addRxPlugin(RxDBDevModePlugin);
@@ -38,7 +40,25 @@ export const initDB = async () => {
 
         await db.addCollections({
             tripevents: {
-                schema: TRIP_EVENT_SCHEMA
+                schema: TRIP_EVENT_SCHEMA,
+                migrationStrategies: {
+                    // 1: from v0 to v1.
+                    // Initialize new optional fields to null to avoid undefined issues in UI
+                    1: function (oldDoc: any) {
+                        oldDoc.lat = oldDoc.lat || null;
+                        oldDoc.lng = oldDoc.lng || null;
+                        return oldDoc;
+                    },
+                    2: function (oldDoc: any) {
+                        oldDoc.region = oldDoc.region || '';
+                        return oldDoc;
+                    },
+                    3: function (oldDoc: any) {
+                        oldDoc.todos = [];
+                        oldDoc.memo = '';
+                        return oldDoc;
+                    }
+                }
             }
         });
 

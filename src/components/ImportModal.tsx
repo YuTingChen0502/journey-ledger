@@ -14,6 +14,8 @@ import { nanoid } from 'nanoid';
 import { toast } from 'sonner';
 import { useRxCollection } from 'rxdb-hooks';
 import type { TripEventDocType } from '@/db/schema';
+import { useTranslation } from '@/hooks/useTranslation';
+
 
 interface ImportModalProps {
     children?: React.ReactNode;
@@ -24,6 +26,7 @@ interface ImportModalProps {
 }
 
 export function ImportModal({ children, defaultDate = new Date(), tripId, userId, onImportSuccess }: ImportModalProps) {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [step, setStep] = useState<'INPUT' | 'STAGING'>('INPUT');
     const [rawText, setRawText] = useState('');
@@ -148,17 +151,17 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, userId
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                {children || <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> Import</Button>}
+                {children || <Button variant="outline"><Upload className="w-4 h-4 mr-2" /> {t('btn.import')}</Button>}
             </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>Import Itinerary</DialogTitle>
+                    <DialogTitle>{t('import.title')}</DialogTitle>
                 </DialogHeader>
 
                 {step === 'INPUT' && (
                     <div className="flex flex-col gap-4 flex-1">
                         <div className="flex items-center gap-4">
-                            <span className="text-sm font-medium">Default Start Date:</span>
+                            <span className="text-sm font-medium">{t('import.date_label')}</span>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
@@ -169,7 +172,7 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, userId
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {targetDate ? format(targetDate, "PPP") : <span>Pick a date</span>}
+                                        {targetDate ? format(targetDate, "PPP") : <span>{t('import.pick_date')}</span>}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
@@ -181,17 +184,17 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, userId
                                     />
                                 </PopoverContent>
                             </Popover>
-                            <span className="text-xs text-muted-foreground">(Fallback for items without a date header)</span>
+                            <span className="text-xs text-muted-foreground">{t('import.fallback_hint')}</span>
                         </div>
                         <Textarea
-                            placeholder="Paste your itinerary here...&#10;Date: 2026-01-31&#10;09:00 Breakfast&#10;10:30 Visit Nagoya Castle"
+                            placeholder={t('import.placeholder')}
                             className="flex-1 min-h-[300px] font-mono"
                             value={rawText}
                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRawText(e.target.value)}
                         />
                         <div className="flex justify-end">
                             <Button onClick={handleAnalyze} disabled={!rawText.trim()}>
-                                Analyze & Preview
+                                {t('import.btn.analyze')}
                             </Button>
                         </div>
                     </div>
@@ -200,9 +203,9 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, userId
                 {step === 'STAGING' && (
                     <div className="flex flex-col gap-4 flex-1 overflow-hidden">
                         <div className="flex items-center justify-between border-b pb-4">
-                            <h3 className="font-semibold">Review & Edit Candidates</h3>
+                            <h3 className="font-semibold">{t('import.review.title')}</h3>
                             <Button variant="ghost" onClick={() => setStep('INPUT')}>
-                                Back to Input
+                                {t('import.btn.back')}
                             </Button>
                         </div>
 
@@ -243,10 +246,10 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, userId
 
                         <div className="flex justify-end gap-2 pt-2 border-t">
                             <Button variant="secondary" onClick={() => handleCommit('BACKLOG')}>
-                                Import to Backlog
+                                {t('import.btn.backlog')}
                             </Button>
                             <Button onClick={() => handleCommit('SCHEDULE')} disabled={!targetDate}>
-                                Import to Schedule
+                                {t('import.btn.schedule')}
                             </Button>
                         </div>
                     </div>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useRxData } from 'rxdb-hooks';
 import type { TripEventDocType } from '@/db/schema';
 import { format, parseISO, addDays } from 'date-fns';
-import { MapPin, Info, Cloud } from 'lucide-react';
+import { MapPin, Info, Cloud, Sun, CloudRain, Snowflake } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import DOMPurify from 'dompurify';
@@ -11,6 +11,19 @@ interface TripViewerProps {
     tripId: string;
     onEventClick: (id: string) => void;
 }
+
+// Mock Weather Data for Nagoya (Jan 31 - Feb 7)
+// Using Muted Palette as requested: Amber-600/80 (Sun), Slate-500 (Cloud), Indigo-900/70 (Rain), Slate-400 (Snow)
+const WEATHER_FORECAST: Record<string, { temp: string; condition: string; icon: React.ElementType; colorClass: string }> = {
+    '2026-01-31': { temp: '6°C', condition: 'Cloudy', icon: Cloud, colorClass: 'text-slate-500' },
+    '2026-02-01': { temp: '9°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
+    '2026-02-02': { temp: '5°C', condition: 'Rain', icon: CloudRain, colorClass: 'text-indigo-900/70' },
+    '2026-02-03': { temp: '8°C', condition: 'Clear', icon: Sun, colorClass: 'text-amber-600/80' },
+    '2026-02-04': { temp: '2°C', condition: 'Snow', icon: Snowflake, colorClass: 'text-slate-400' },
+    '2026-02-05': { temp: '5°C', condition: 'Cloudy', icon: Cloud, colorClass: 'text-slate-500' },
+    '2026-02-06': { temp: '10°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
+    '2026-02-07': { temp: '11°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
+};
 
 export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
     const { result: events } = useRxData<TripEventDocType>(
@@ -59,17 +72,22 @@ export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
     // State for Tabbed View
     const [selectedDay, setSelectedDay] = useState<string>('2026-01-31');
 
+    // Weather Logic
+    const currentWeather = WEATHER_FORECAST[selectedDay] || { temp: '--', condition: '', icon: Cloud, colorClass: 'text-slate-500' };
+    const WeatherIcon = currentWeather.icon;
+
     return (
         <div className="flex flex-col h-full bg-background relative">
             {/* Header: Dates & Weather */}
-            <div className="flex justify-between items-end px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur z-20 sticky top-0">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur z-20 sticky top-0">
                 <div>
                     <h1 className="text-3xl font-serif text-primary">Nagoya 2026</h1>
                     <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">Jan 31 — Feb 07</p>
                 </div>
-                <div className="flex items-center gap-2 text-muted-foreground bg-muted/30 px-3 py-1 rounded-full">
-                    <Cloud className="h-4 w-4" />
-                    <span className="text-sm font-medium">9°C</span>
+                {/* Weather Widget: Refined Muted Palette */}
+                <div className="flex items-center gap-1.5 bg-muted/40 px-3 py-1.5 rounded-full backdrop-blur-sm border border-border/20">
+                    <WeatherIcon className={`h-4 w-4 stroke-[1.5px] ${currentWeather.colorClass}`} />
+                    <span className={`text-sm font-medium ${currentWeather.colorClass}`}>{currentWeather.temp}</span>
                 </div>
             </div>
 

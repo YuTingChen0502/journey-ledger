@@ -16,19 +16,14 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import type { Session } from '@supabase/supabase-js'
 import { Provider } from 'rxdb-hooks'
 import { Plus } from 'lucide-react'
+import { SettingsProvider } from './context/SettingsContext'
+import { useTranslation } from './hooks/useTranslation'
 
 import { EventDetailView } from './components/Timeline/EventDetailView'
 
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [db, setDb] = useState<any>(null)
-
-  // Event Modal State (For Creation/Edit legacy?)
-  const [eventModalOpen, setEventModalOpen] = useState(false);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-
-  // Detail View State (New Journal UI)
-  const [detailViewOpen, setDetailViewOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -51,37 +46,52 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Mode for Top Level Navigation
-  const [mode, setMode] = useState<'dashboard' | 'overview' | 'planning'>('dashboard');
-  // Sub-mode for Planning Section
-  const [planningView, setPlanningView] = useState<'timeline' | 'table'>('timeline');
-
-  const TRIP_ID = 'nagoya-2026';
-
-  const handleCreateEvent = () => {
-    setSelectedEventId(null);
-    setEventModalOpen(true);
-  };
-
-  // Legacy Edit or Table Edit might use this
-  const handleEditEvent = (id: string) => {
-    setSelectedEventId(id);
-    setEventModalOpen(true);
-  };
-
-  // New Journal Interaction
-  const handleEventClick = (id: string) => {
-    setSelectedEventId(id);
-    setDetailViewOpen(true);
-  };
-
   if (!session) return <Auth />
-  if (!db) return <LoadingSkeleton />
+  if (!db) return <LoadingSkeleton message="Updating Database Schema..." />
 
+  return (
+    <Provider db={db}>
+      <SettingsProvider>
+        <AppContent session={session} />
+      </SettingsProvider>
+    </Provider>
+  )
+}
+
+function AppContent({ session }: { session: Session }) {
+  const { t } = useTranslation()
+
+  // App State
+  const [mode, setMode] = useState<'dashboard' | 'overview' | 'planning'>('dashboard')
+  const [planningView, setPlanningView] = useState<'timeline' | 'table'>('timeline')
+
+  const [eventModalOpen, setEventModalOpen] = useState(false)
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [detailViewOpen, setDetailViewOpen] = useState(false)
+
+  const TRIP_ID = 'nagoya-2026'
+
+  // Handlers
+  const handleCreateEvent = () => {
+    setSelectedEventId(null)
+    setEventModalOpen(true)
+  }
+
+  const handleEditEvent = (id: string) => {
+    setSelectedEventId(id)
+    setEventModalOpen(true)
+  }
+
+  const handleEventClick = (id: string) => {
+    setSelectedEventId(id)
+    setDetailViewOpen(true)
+  }
+
+  // Navigation Components
   const TopNavigation = (
     <>
       <div className="flex items-center gap-4 cursor-pointer" onClick={() => setMode('dashboard')}>
-        <h2 className="text-xl font-serif font-bold tracking-tight text-primary">Nagoya 2026</h2>
+        <h2 className="text-xl font-serif font-bold tracking-tight text-primary">{t('trip.title')}</h2>
       </div>
 
       {mode === 'planning' && (
@@ -92,7 +102,7 @@ function App() {
             onClick={() => setPlanningView('timeline')}
             className="text-xs font-medium"
           >
-            Timeline
+            {t('nav.timeline')}
           </Button>
           <Button
             variant={planningView === 'table' ? 'secondary' : 'ghost'}
@@ -100,7 +110,7 @@ function App() {
             onClick={() => setPlanningView('table')}
             className="text-xs font-medium"
           >
-            Data Grid
+            {t('nav.table')}
           </Button>
         </div>
       )}
@@ -113,26 +123,26 @@ function App() {
             className="gap-2 border-dashed"
             onClick={handleCreateEvent}
           >
-            <Plus className="w-4 h-4" /> Create
+            <Plus className="w-4 h-4" /> {t('nav.create')}
           </Button>
         )}
 
         {mode === 'overview' && (
           <Button variant="ghost" size="sm" onClick={() => setMode('planning')}>
-            Edit Itinerary
+            {t('nav.edit_itinerary')}
           </Button>
         )}
         <ImportModal
           tripId={TRIP_ID}
           userId={session.user.id}
           onImportSuccess={() => {
-            setMode('planning');
-            setPlanningView('table');
+            setMode('planning')
+            setPlanningView('table')
           }}
         />
       </div>
     </>
-  );
+  )
 
   const BottomNavigation = (
     <div className="h-16 flex items-center justify-around px-6">
@@ -142,7 +152,7 @@ function App() {
         className="flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl"
       >
         <span className="text-xl">🏠</span>
-        <span className="text-[10px] font-medium tracking-wide">Home</span>
+        <span className="text-[10px] font-medium tracking-wide">{t('nav.home')}</span>
       </Button>
 
       <Button
@@ -151,7 +161,7 @@ function App() {
         className="flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl"
       >
         <span className="text-xl">📖</span>
-        <span className="text-[10px] font-medium tracking-wide">Journal</span>
+        <span className="text-[10px] font-medium tracking-wide">{t('nav.journal')}</span>
       </Button>
 
       <Button
@@ -160,31 +170,30 @@ function App() {
         className="flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl"
       >
         <span className="text-xl">✏️</span>
-        <span className="text-[10px] font-medium tracking-wide">Plan</span>
+        <span className="text-[10px] font-medium tracking-wide">{t('nav.plan')}</span>
       </Button>
     </div>
-  );
+  )
 
   return (
-    <Provider db={db}>
+    <>
       <Toaster />
       <ResponsiveLayout
         topNav={mode !== 'dashboard' ? TopNavigation : null}
         bottomNav={BottomNavigation}
         className={mode === 'dashboard' ? 'bg-transparent shadow-none !my-0 !max-w-none' : ''}
       >
-        {/* Main Content Area */}
         <div className={`h-full w-full overflow-hidden relative ${mode !== 'dashboard' ? 'bg-card' : ''}`}>
           <ErrorBoundary>
             {mode === 'dashboard' && <TripDashboard onNavigate={(view) => {
               if (view === 'planner') {
-                setPlanningView('timeline');
-                setMode('planning');
+                setPlanningView('timeline')
+                setMode('planning')
               } else if (view === 'table') {
-                setPlanningView('table');
-                setMode('planning');
+                setPlanningView('table')
+                setMode('planning')
               } else {
-                setMode(view);
+                setMode(view)
               }
             }} />}
 
@@ -196,7 +205,6 @@ function App() {
         </div>
       </ResponsiveLayout>
 
-      {/* Event Modal (Create/Legacy Edit) */}
       <EventModal
         userId={session.user.id}
         eventId={selectedEventId}
@@ -205,13 +213,12 @@ function App() {
         defaultDate={new Date()}
       />
 
-      {/* Event Detail View (Journal Mode) */}
       <EventDetailView
         eventId={selectedEventId}
         open={detailViewOpen}
         onClose={() => setDetailViewOpen(false)}
       />
-    </Provider>
+    </>
   )
 }
 

@@ -23,6 +23,8 @@ import { Plus } from 'lucide-react'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import type { TripEventDocType } from '@/db/schema'
+import { useTranslation } from '@/hooks/useTranslation'
+
 
 type FormData = {
     title: string
@@ -40,6 +42,7 @@ interface EventModalProps {
 }
 
 export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChange, defaultDate }: EventModalProps) {
+    const { t } = useTranslation()
     // Internal state for when used as a trigger-based modal (Create Mode mainly)
     const [internalOpen, setInternalOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
@@ -145,12 +148,12 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
         <Dialog open={open} onOpenChange={setOpen}>
             {!isControlled && (
                 <DialogTrigger asChild>
-                    <Button><Plus className="mr-2 h-4 w-4" /> Add Event</Button>
+                    <Button><Plus className="mr-2 h-4 w-4" /> {t('modal.btn.add')}</Button>
                 </DialogTrigger>
             )}
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit Event' : 'Add New Event'}</DialogTitle>
+                    <DialogTitle>{isEditMode ? t('modal.edit_title') : t('modal.add_title')}</DialogTitle>
                 </DialogHeader>
                 {isLoading ? (
                     <div className="flex justify-center p-8">Loading...</div>
@@ -162,9 +165,9 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
                                 name="title"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Title</FormLabel>
+                                        <FormLabel>{t('modal.label.title')}</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Event title" {...field} />
+                                            <Input placeholder={t('modal.placeholder.title')} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -175,9 +178,9 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
                                 name="location"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Location</FormLabel>
+                                        <FormLabel>{t('modal.label.location')}</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="Location" {...field} />
+                                            <Input placeholder={t('modal.placeholder.location')} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -189,7 +192,7 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
                                     name="start_time"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Start Time</FormLabel>
+                                            <FormLabel>{t('modal.label.start_time')}</FormLabel>
                                             <FormControl>
                                                 <Input type="datetime-local" {...field} />
                                             </FormControl>
@@ -202,7 +205,7 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
                                     name="end_time"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>End Time</FormLabel>
+                                            <FormLabel>{t('modal.label.end_time')}</FormLabel>
                                             <FormControl>
                                                 <Input type="datetime-local" {...field} />
                                             </FormControl>
@@ -211,7 +214,7 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
                                     )}
                                 />
                             </div>
-                            <Button type="submit">{isEditMode ? 'Save Changes' : 'Create Event'}</Button>
+                            <Button type="submit">{isEditMode ? t('modal.btn.save') : t('modal.btn.create')}</Button>
                         </form>
                     </Form>
                 )}
