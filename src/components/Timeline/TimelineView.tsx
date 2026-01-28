@@ -18,7 +18,7 @@ import { TimelineEvent } from './TimelineEvent';
 import { addDays, format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
 import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 
 interface TimelineViewProps {
@@ -64,7 +64,7 @@ export function TimelineView({ tripId }: TimelineViewProps) {
     );
 
     const [activeId, setActiveId] = useState<string | null>(null);
-    const [showBacklog, setShowBacklog] = useState(true);
+    const [showBacklog, setShowBacklog] = useState(false); // Default collapsed
     const [previewTime, setPreviewTime] = useState<string | null>(null);
 
     // Date Range: Jan 31 - Feb 7
@@ -230,12 +230,16 @@ export function TimelineView({ tripId }: TimelineViewProps) {
         >
             <div className="flex h-full overflow-hidden bg-background relative">
                 {/* Fixed Time Sidebar */}
-                <div className="w-16 flex-shrink-0 border-r bg-muted/30 pt-8 overflow-hidden relative">
-                    {Array.from({ length: 18 }, (_, i) => i + 6).map(h => (
-                        <div key={h} className="absolute w-full text-right pr-2 text-xs text-muted-foreground" style={{ top: `${(h - 6) * 120}px` }}>
-                            {`${h}:00`}
-                        </div>
-                    ))}
+                <div className="w-16 flex-shrink-0 border-r bg-muted/30 overflow-hidden relative border-t">
+                    {/* Corner Header Block to match Date Rows */}
+                    <div className="h-8 border-b bg-muted/50 w-full" />
+                    <div className="relative w-full h-full">
+                        {Array.from({ length: 18 }, (_, i) => i + 6).map(h => (
+                            <div key={h} className="absolute w-full text-right pr-2 text-xs text-muted-foreground" style={{ top: `${(h - 6) * 120}px` }}>
+                                {`${h}:00`}
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Main Grid Scroll Area */}
@@ -292,6 +296,7 @@ export function TimelineView({ tripId }: TimelineViewProps) {
                             );
                         })}
                     </div>
+                    <ScrollBar orientation="horizontal" />
                 </ScrollArea>
 
                 {/* Right Floating Sidebar (Backlog) - Collapsible */}

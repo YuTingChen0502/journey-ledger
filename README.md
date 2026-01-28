@@ -22,14 +22,18 @@ Powered by **React**, **RxDB** (Local-First), and **Supabase** (Auth).
 
 ## 📝 Changelog
 
-### v0.4.0: Interactive Timeline Engine (Current)
+### v0.4.1: UX Polish (Current)
+- **Timeline Layout**: Fixed "ugly" corner alignment and enabled horizontal scrolling.
+- **Sidebar**: Defaults to collapsed to declutter initial view.
+
+### v0.4.0: Interactive Timeline Engine
 - **Vertical Week View**: Full interactive grid for Jan 31 - Feb 7, 2026.
 - **Precision Drag & Drop**:
-    - Absolute grid positioning with "Duration Lock" (moving doesn't resize).
-    - 5-minute magnetic snapping (10px intervals).
+    - Absolute grid positioning with "Duration Lock".
+    - 5-minute magnetic snapping.
 - **Live Resizing**:
     - Bottom-handle resizing logic with touch support.
-    - Real-time HUD showing "End Time" during manipulation.
+    - Real-time HUD showing "End Time".
 - **UI Improvements**:
     - Collapsible "Unscheduled" Sidebar.
     - Refined Header Layout (Split Actions/Views).
