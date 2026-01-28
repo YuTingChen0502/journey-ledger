@@ -17,13 +17,18 @@ import type { Session } from '@supabase/supabase-js'
 import { Provider } from 'rxdb-hooks'
 import { Plus } from 'lucide-react'
 
+import { EventDetailView } from './components/Timeline/EventDetailView'
+
 function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [db, setDb] = useState<any>(null)
 
-  // Event Modal State
+  // Event Modal State (For Creation/Edit legacy?)
   const [eventModalOpen, setEventModalOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // Detail View State (New Journal UI)
+  const [detailViewOpen, setDetailViewOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -58,9 +63,16 @@ function App() {
     setEventModalOpen(true);
   };
 
+  // Legacy Edit or Table Edit might use this
   const handleEditEvent = (id: string) => {
     setSelectedEventId(id);
     setEventModalOpen(true);
+  };
+
+  // New Journal Interaction
+  const handleEventClick = (id: string) => {
+    setSelectedEventId(id);
+    setDetailViewOpen(true);
   };
 
   if (!session) return <Auth />
@@ -176,21 +188,28 @@ function App() {
               }
             }} />}
 
-            {mode === 'overview' && <TripViewer tripId={TRIP_ID} />}
+            {mode === 'overview' && <TripViewer tripId={TRIP_ID} onEventClick={handleEventClick} />}
 
-            {mode === 'planning' && planningView === 'timeline' && <TimelineView tripId={TRIP_ID} />}
+            {mode === 'planning' && planningView === 'timeline' && <TimelineView tripId={TRIP_ID} onEventClick={handleEventClick} />}
             {mode === 'planning' && planningView === 'table' && <TripTable onEdit={handleEditEvent} />}
           </ErrorBoundary>
         </div>
       </ResponsiveLayout>
 
-      {/* Event Modal (Global) */}
+      {/* Event Modal (Create/Legacy Edit) */}
       <EventModal
         userId={session.user.id}
         eventId={selectedEventId}
         isOpen={eventModalOpen}
         onOpenChange={setEventModalOpen}
         defaultDate={new Date()}
+      />
+
+      {/* Event Detail View (Journal Mode) */}
+      <EventDetailView
+        eventId={selectedEventId}
+        open={detailViewOpen}
+        onClose={() => setDetailViewOpen(false)}
       />
     </Provider>
   )

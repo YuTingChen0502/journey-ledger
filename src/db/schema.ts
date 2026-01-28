@@ -23,6 +23,18 @@ export const TRIP_EVENT_SCHEMA = {
         location: {
             type: 'string'
         },
+        place_id: {
+            type: 'string'
+        },
+        category: {
+            type: 'string'
+        },
+        image: {
+            type: 'string'
+        },
+        external_link: {
+            type: 'string'
+        },
         is_floating: {
             type: 'boolean'
         },
@@ -63,6 +75,10 @@ export type TripEventDocType = {
     title: string;
     description?: string;
     location?: string;
+    place_id?: string;
+    category?: string;
+    image?: string; // Base64
+    external_link?: string;
     is_floating: boolean;
     start_time?: string;
     end_time?: string;

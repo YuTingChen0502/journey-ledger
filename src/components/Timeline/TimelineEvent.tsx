@@ -4,12 +4,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { TripEventDocType } from '@/db/schema';
 import { GripVertical, Trash2 } from 'lucide-react';
-import DOMPurify from 'dompurify';
+// DOMPurify removed
 import { useRxCollection } from 'rxdb-hooks';
 import { Button } from '@/components/ui/button';
 import { safeFormatTime, safeParseISO } from '@/lib/dateUtils';
 import { cn } from '@/lib/utils';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { addMinutes } from 'date-fns';
 
 interface TimelineEventProps {
@@ -18,11 +18,12 @@ interface TimelineEventProps {
     className?: string;
     isOverlay?: boolean;
     previewTime?: string | null;
+    onClick?: () => void;
 }
 
 const PPM = 2; // Share this constant or prop it
 
-export function TimelineEvent({ event, style, className, isOverlay, previewTime }: TimelineEventProps) {
+export function TimelineEvent({ event, style, className, isOverlay, previewTime, onClick }: TimelineEventProps) {
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const [isResizing, setIsResizing] = useState(false);
     const [resizeHeight, setResizeHeight] = useState<number | null>(null);
@@ -121,7 +122,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime 
         }
     };
 
-    const onPointerUp = async (e: PointerEvent) => {
+    const onPointerUp = async () => {
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', onPointerUp);
 
@@ -163,7 +164,19 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime 
     };
 
     return (
-        <div ref={setNodeRef} style={finalStyle} className={cn("absolute w-full px-1", className)}>
+        <div
+            ref={setNodeRef}
+            style={finalStyle}
+            className={cn("absolute w-full px-1 cursor-pointer active:scale-[0.98] transition-transform", className)}
+            onClick={() => {
+                // Prevent click if we were just dragging or resizing (heuristic helpful here)
+                // DnD kit might swallow clicks during drag, but let's be safe.
+                if (!isDragging && !isResizing && onClick) {
+                    console.log('TimelineEvent clicked', event.id);
+                    onClick();
+                }
+            }}
+        >
             {/* Time Indicator Badge */}
             {(isOverlay || isResizing) && (
                 <Badge
@@ -179,7 +192,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime 
 
             <Card className={cn(
                 "h-full overflow-hidden transition-shadow select-none relative group",
-                (isDragging || isOverlay) ? "shadow-xl ring-2 ring-primary" : "shadow-sm hover:shadow-md",
+                (isDragging || isOverlay) ? "shadow-xl ring-2 ring-primary" : "shadow-sm hover:shadow-lg cursor-pointer",
                 "bg-card border-l-4 border-l-primary"
             )}>
                 <CardContent className="p-2 flex flex-col h-full gap-1">
@@ -188,7 +201,8 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime 
                         <div
                             {...attributes}
                             {...listeners}
-                            className={cn("cursor-grab active:cursor-grabbing text-muted-foreground p-1 -m-1", isResizing && "pointer-events-none")}
+                            className={cn("cursor-grab active:cursor-grabbing text-muted-foreground p-1 -m-1 hover:bg-muted rounded-full transition-colors", isResizing && "pointer-events-none")}
+                            onClick={(e) => e.stopPropagation()} // Keep drag handle from triggering detail view
                         >
                             <GripVertical className="h-3 w-3" />
                         </div>
@@ -209,14 +223,14 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime 
 
                     <div className="flex-1 min-h-0 text-[10px] text-muted-foreground leading-tight">
                         {event.start_time && <div>{safeFormatTime(event.start_time)}</div>}
-                        {event.location && <div className="truncate">{DOMPurify.sanitize(event.location)}</div>}
                     </div>
 
                     {/* Resize Handle (Bottom) */}
                     {!isDragging && !isOverlay && (
                         <div
                             onPointerDown={handleResizeStart}
-                            className="absolute bottom-0 left-0 w-full h-6 cursor-ns-resize flex items-end justify-center bg-transparent touch-none pb-1"
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute bottom-0 left-0 w-full h-6 cursor-ns-resize flex items-end justify-center bg-transparent touch-none pb-1 hover:bg-primary/5 transition-colors"
                         >
                             {/* Always visible grip for mobile */}
                             <div className="w-10 h-1 rounded-full bg-muted-foreground/40" />

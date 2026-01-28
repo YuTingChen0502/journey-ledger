@@ -9,9 +9,10 @@ import DOMPurify from 'dompurify';
 
 interface TripViewerProps {
     tripId: string;
+    onEventClick: (id: string) => void;
 }
 
-export function TripViewer({ tripId }: TripViewerProps) {
+export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
     const { result: events } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
@@ -133,7 +134,10 @@ export function TripViewer({ tripId }: TripViewerProps) {
                                         <div className="absolute -left-[39px] top-4 h-2 w-2 rounded-full bg-muted-foreground/50 group-hover:bg-primary transition-colors"></div>
 
                                         {/* Event Card */}
-                                        <Card className="border-none shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-card overflow-hidden">
+                                        <Card
+                                            className="border-none shadow-sm hover:shadow-md transition-shadow cursor-pointer bg-card overflow-hidden active:scale-[0.99] transition-transform"
+                                            onClick={() => onEventClick(event.id)}
+                                        >
                                             <div className="flex">
                                                 {/* Time Column */}
                                                 <div className="bg-muted/30 p-3 min-w-[70px] flex flex-col items-center justify-center border-r border-border/50 text-muted-foreground">
