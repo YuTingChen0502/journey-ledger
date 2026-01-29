@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CSSProperties } from 'react';
+// import { CSSProperties } from 'react';
 
 interface DayColumnProps {
     date: Date;

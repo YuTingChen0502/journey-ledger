@@ -7,7 +7,9 @@ import {
     useSensor,
     useSensors,
     useDroppable,
-    PointerSensor,
+    // PointerSensor, 
+    TouchSensor,
+    MouseSensor,
     type DragEndEvent,
     type DragStartEvent,
     type DragMoveEvent,
@@ -19,7 +21,7 @@ import { TimelineEvent } from './TimelineEvent';
 import { addDays, format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
 import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
 import { Button } from '@/components/ui/button';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+// ScrollArea removed
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { enUS, zhTW } from 'date-fns/locale';
@@ -55,8 +57,12 @@ function BacklogArea({ children }: { children: React.ReactNode }) {
     );
 }
 
+// import { useAuth } from '@/context/AuthContext';
+
 export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
     const { t, language } = useTranslation();
+    // const { user } = useAuth();
+    // const userId = user?.id || 'guest'; // Removed for Shared Mode
     const dateLocale = language === 'zh-TW' ? zhTW : enUS;
 
     const collection = useRxCollection<TripEventDocType>('tripevents');
@@ -65,6 +71,7 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
         collection => collection.find({
             selector: {
                 trip_id: { $eq: tripId },
+                // owner_id: { $eq: userId }, // REMOVED: Shared Workspace Mode
                 is_deleted: { $eq: false }
             },
             sort: [{ start_time: 'asc' }]
@@ -110,14 +117,23 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
     }, [events]);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(TouchSensor, {
             activationConstraint: {
-                distance: 5,
+                delay: 300, // v0.9.10: Increased safety buffer for native scroll
+                tolerance: 8, // Keep sloppy tolerance
+            },
+        }),
+        useSensor(MouseSensor, {
+            activationConstraint: {
+                distance: 10,
             },
         })
     );
 
     const handleDragStart = (event: DragStartEvent) => {
+        // Haptic Feedback: Short Tick
+        if (navigator.vibrate) navigator.vibrate(15);
+
         setActiveId(event.active.id as string);
         const activeEvent = events.find(e => e.id === event.active.id);
         if (activeEvent?.start_time) {
@@ -157,6 +173,9 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
+        // Haptic Feedback: Thud
+        if (navigator.vibrate) navigator.vibrate(20);
+
         const { active, over, delta } = event;
         setActiveId(null);
         setPreviewTime(null);
@@ -238,12 +257,12 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
                 onDragMove={handleDragMove}
                 onDragEnd={handleDragEnd}
             >
-                <div className="flex h-full overflow-hidden bg-background relative">
+                <div className="flex h-full overflow-hidden bg-transparent relative">
                     {/* ... (content) ... */}
                     {/* Keep everything inside as before */}
-                    <div className="w-16 flex-shrink-0 border-r bg-muted/30 overflow-hidden relative border-t">
+                    <div className="w-16 flex-shrink-0 border-r bg-white/20 backdrop-blur-md overflow-hidden relative border-t">
                         {/* Corner Header Block to match Date Rows */}
-                        <div className="h-8 border-b bg-muted/50 w-full" />
+                        <div className="h-8 border-b bg-white/30 w-full" />
                         <div className="relative w-full h-full">
                             {Array.from({ length: 18 }, (_, i) => i + 6).map(h => (
                                 <div key={h} className="absolute w-full text-right pr-2 text-xs text-muted-foreground" style={{ top: `${(h - 6) * 120}px` }}>
@@ -254,16 +273,26 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
                     </div>
 
                     {/* Main Grid Scroll Area */}
-                    <ScrollArea className="flex-1 h-full">
-                        <div className="flex min-w-max h-[2160px]">
+                    {/* Main Grid Scroll Container (Viewport Isolation) */}
+                    {/* Main Grid Scroll Container (Native Scroll Mode) */}
+                    {/* Main Grid Scroll Container (Native Scroll Mode + Horizontal Fix) */}
+                    <div
+                        id="timeline-scroll-container"
+                        className="w-full relative overflow-x-auto overflow-y-hidden" // Allow X scroll, let Y flow (native)
+                        style={{
+                            touchAction: 'manipulation', // v0.9.11 Fix: Allow omni-directional scroll
+                            WebkitOverflowScrolling: 'touch',
+                        }}
+                    >
+                        <div className="flex h-[2160px] pb-32"> {/* v0.10.7 Fix: Added pb-32 for mobile bottom safety */}
                             {days.map(day => {
                                 const dateKey = format(day, 'yyyy-MM-dd');
                                 const dayList = dayEvents.get(dateKey) || [];
 
                                 return (
-                                    <div key={dateKey} className="flex flex-col w-[200px] border-r">
+                                    <div key={dateKey} className="flex flex-col border-r flex-shrink-0 day-column">
                                         {/* Header */}
-                                        <div className="h-8 flex items-center justify-center border-b font-medium text-sm bg-muted/50 sticky top-0 z-20">
+                                        <div className="h-8 flex items-center justify-center border-b font-medium text-sm bg-white/30 sticky top-0 z-20 shadow-sm backdrop-blur-md">
                                             {format(day, 'EEE d', { locale: dateLocale })}
                                         </div>
                                         {/* Column */}
@@ -311,8 +340,7 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
                                 );
                             })}
                         </div>
-                        <ScrollBar orientation="horizontal" />
-                    </ScrollArea>
+                    </div>
 
                     {/* Right Floating Sidebar (Backlog) - Collapsible */}
                     <div className={`border-l bg-muted/10 flex flex-col transition-all duration-300 ease-in-out ${showBacklog ? 'w-64' : 'w-0 overflow-hidden'}`}>

@@ -17,15 +17,20 @@ import type { TripEventDocType } from '@/db/schema';
 import { useTranslation } from '@/hooks/useTranslation';
 
 
+import { useAuth } from '@/context/AuthContext';
+
 interface ImportModalProps {
     children?: React.ReactNode;
     defaultDate?: Date;
     tripId: string; // We need to know which trip to add to
-    userId: string;
+    // userId: string; // Removed, use context
     onImportSuccess?: () => void;
+    userId?: string; // Optional for compatibility if passed, but ignored in favor of context
 }
 
-export function ImportModal({ children, defaultDate = new Date(), tripId, userId, onImportSuccess }: ImportModalProps) {
+export function ImportModal({ children, defaultDate = new Date(), tripId, onImportSuccess }: ImportModalProps) {
+    const { user } = useAuth();
+    const userId = user?.id || 'guest';
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [step, setStep] = useState<'INPUT' | 'STAGING'>('INPUT');

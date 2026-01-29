@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from './ui/button';
-import { removeRxDatabase } from 'rxdb'; // Or generic clear if not available directly
+// import { removeRxDatabase } from 'rxdb'; // Or generic clear if not available directly
 
 interface ErrorBoundaryProps {
     children: React.ReactNode;

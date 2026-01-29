@@ -37,8 +37,9 @@ export function ResponsiveLayout({ children, bottomNav, topNav, className }: Res
                 ${className || ''}
             `}>
 
-                {/* Desktop Top Nav (Hidden on Mobile) */}
-                <div className="hidden md:flex sticky top-0 z-50 bg-card/95 backdrop-blur border-b border-border/50 px-6 py-4 rounded-t-xl justify-between items-center">
+                {/* Top Nav (Visible on Mobile & Desktop now) */}
+                {/* v0.10.4 Fix: Removed 'hidden md:flex' to show header on mobile */}
+                <div className="flex sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-white/20 px-4 py-3 md:px-6 md:py-4 md:rounded-t-xl justify-between items-center transition-all">
                     {topNav}
                 </div>
 

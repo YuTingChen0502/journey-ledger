@@ -11,19 +11,32 @@ export type ReplicationState = {
     active: Subject<boolean>;
     received: Subject<number>;
     sent: Subject<number>;
+    reSync: () => void;
 }
 
 export const startReplication = async (collection: RxCollection<TripEventDocType>) => {
+    // 1. Authenticate / Get Session
+    const session = await supabase.auth.getSession();
+    const userId = session.data.session?.user?.id;
+
+    if (!userId) {
+        console.warn("Replication skipped: No User ID");
+        return null;
+    }
+
+    console.log("Starting Supabase Replication for User:", userId);
+
     const replicationState = await replicateRxCollection({
         collection,
-        replicationIdentifier: 'supabase-trip-events-replication',
+        replicationIdentifier: 'supabase-jsonb-trip-events-v1', // Bumped version for new strategy
         pull: {
             handler: async (checkpoint: any, batchSize: number) => {
                 const updatedAt = checkpoint ? checkpoint.updated_at : 0;
 
+                // PULL: Fetch rows where updated_at > checkpoint
                 const { data, error } = await supabase
                     .from('trip_events')
-                    .select('*')
+                    .select('id, updated_at, deleted, data')
                     .gt('updated_at', updatedAt)
                     .order('updated_at', { ascending: true })
                     .limit(batchSize);
@@ -33,9 +46,23 @@ export const startReplication = async (collection: RxCollection<TripEventDocType
                     throw error;
                 }
 
+                const documents = data.map((row: any) => {
+                    // UNPACK: Merge row metadata with JSONB data
+                    // row.data contains title, description, lat, lng, etc.
+                    // We must override id, updated_at, is_deleted from the SQL columns to be sure.
+                    const unpacked = {
+                        ...row.data, // content
+                        id: row.id,
+                        updated_at: row.updated_at,
+                        is_deleted: row.deleted,
+                        owner_id: userId // Ensure ownership is consistent locally
+                    };
+                    return unpacked;
+                });
+
                 return {
-                    documents: data || [],
-                    checkpoint: data && data.length > 0
+                    documents: documents,
+                    checkpoint: data.length > 0
                         ? { updated_at: data[data.length - 1].updated_at }
                         : checkpoint
                 };
@@ -43,7 +70,23 @@ export const startReplication = async (collection: RxCollection<TripEventDocType
         },
         push: {
             handler: async (docs) => {
-                const rows = docs.map(d => d.newDocumentState);
+                const rows = docs.map(d => {
+                    const doc = d.newDocumentState;
+
+                    // PACK: Separate Metadata from Content
+                    const { id, updated_at, is_deleted, ...rest } = doc;
+
+                    // 'rest' contains all the fields we want in JSONB (title, location, images...)
+                    // 'id', 'updated_at', 'is_deleted' go to their own columns.
+
+                    return {
+                        id: id,
+                        updated_at: updated_at,
+                        deleted: is_deleted,
+                        user_id: userId, // Enforce User ID from session
+                        data: rest // PACK EVERYTHING ELSE INTO JSONB
+                    };
+                });
 
                 const { error } = await supabase
                     .from('trip_events')
@@ -55,7 +98,6 @@ export const startReplication = async (collection: RxCollection<TripEventDocType
                 }
 
                 // Return explicitly empty array to indicate success for all docs
-                // RxDB types might update, but generally returning [] means no conflicts/errors handled individually
                 return [];
             },
             batchSize: REPLICATION_SIZE,
@@ -63,6 +105,7 @@ export const startReplication = async (collection: RxCollection<TripEventDocType
         },
         live: true,
         waitForLeadership: false, // Replicate in all tabs
+        autoStart: true
     });
 
     // Realtime Subscription
@@ -71,9 +114,14 @@ export const startReplication = async (collection: RxCollection<TripEventDocType
         .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_events' },
-            () => replicationState.reSync()
+            () => {
+                // console.log('Realtime Change Detected');
+                replicationState.reSync();
+            }
         )
         .subscribe();
+
+    // Attach listener cancellation if needed, though replicationState handles most lifecycle
 
     return replicationState;
 };

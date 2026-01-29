@@ -6,8 +6,37 @@ export interface GeocodingResult {
     country: string;
 }
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+// Open-Meteo Geocoding API (Fast, Reliable, No Heavy Rate Limiting)
+async function fetchOpenMeteo(q: string): Promise<GeocodingResult | null> {
+    try {
+        const params = new URLSearchParams({
+            name: q,
+            count: '1',
+            language: 'en',
+            format: 'json'
+        });
 
+        const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params.toString()}`);
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        if (data && data.results && data.results.length > 0) {
+            const item = data.results[0];
+            return {
+                id: item.id,
+                name: item.name,
+                latitude: item.latitude,
+                longitude: item.longitude,
+                country: item.country || ''
+            };
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+// Fallback to Nominatim (Slower, but good for specific addresses)
 async function fetchNominatim(q: string): Promise<GeocodingResult | null> {
     try {
         const params = new URLSearchParams({
@@ -41,33 +70,25 @@ async function fetchNominatim(q: string): Promise<GeocodingResult | null> {
 export async function searchLocation(query: string): Promise<GeocodingResult | null> {
     if (!query || query.length < 2) return null;
 
-    // 1. Try Exact match
-    let result = await fetchNominatim(query);
+    // 1. Try Open-Meteo first (Fastest)
+    // It handles fuzzy search well for cities and venues
+    let result = await fetchOpenMeteo(query);
     if (result) return result;
 
-    // 2. Try removing parentheses (e.g. "Centrair (Access Plaza)" -> "Centrair")
-    const cleanName = query.replace(/\s*\(.*?\)\s*/g, '').trim();
-    if (cleanName !== query) {
-        await sleep(500); // polite delay
-        result = await fetchNominatim(cleanName);
-        if (result) return result;
-    }
-
-    // 3. Try splitting by comma (e.g. "Nagoya Station, Aichi, Japan")
+    // 2. Fallback: Try specific parts with OpenMeteo again (often faster than Nominatim retry)
+    // E.g. "Nagoya Station, Aichi" -> "Nagoya Station"
     const parts = query.split(',').map(s => s.trim()).filter(s => s.length > 2);
     if (parts.length > 1) {
-        // Try the first part (Venue name usually)
-        await sleep(500);
-        result = await fetchNominatim(parts[0]);
+        result = await fetchOpenMeteo(parts[0]); // Venue name
         if (result) return result;
 
-        // Try the last part (City/Region usually) - good for weather fallback
-        // Skip if last part is just "Japan" or similar common country name? (Optional optimization)
-        await sleep(500);
-        const lastPart = parts[parts.length - 1];
-        result = await fetchNominatim(lastPart);
+        result = await fetchOpenMeteo(parts[parts.length - 1]); // City name (High confidence for weather)
         if (result) return result;
     }
 
-    return null;
+    // 3. Last Resort: Nominatim (Address specific)
+    // Only call if really needed, to save time
+    result = await fetchNominatim(query);
+
+    return result;
 }

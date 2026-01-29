@@ -1,13 +1,54 @@
 import { useState, useEffect } from 'react';
 import { differenceInHours, parseISO } from 'date-fns';
 
-// Simple in-memory cache to avoid redundant API calls
-const weatherCache: Record<string, any> = {};
+const CACHE_KEY = 'trip-weather-cache-v2'; // Invalidate old cache for new data structure
+const CACHE_DURATION = 1000 * 60 * 60; // 1 Hour
 
 export interface SpotWeatherData {
     temp: number;
     code: number; // WMO Weather Code
     isDay: number;
+}
+
+// Helper to get/set cache
+const getCache = (): Record<string, { data: any; timestamp: number }> => {
+    try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+};
+
+const setCache = (key: string, data: any) => {
+    try {
+        const cache = getCache();
+        cache[key] = { data, timestamp: Date.now() };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.warn('Cache Storage Error', e);
+    }
+};
+
+export interface SpotWeatherData {
+    temp: number;
+    code: number;
+    isDay: number;
+    hourly: {
+        time: string[];
+        temperature_2m: number[];
+        weather_code: number[];
+        is_day: number[];
+    };
+    daily: {
+        time: string[];
+        weather_code: number[];
+        temperature_2m_max: number[];
+        temperature_2m_min: number[];
+        precipitation_probability_max: number[];
+        sunrise: string[];
+        sunset: string[];
+    };
 }
 
 export function useSpotWeather(lat?: number, lng?: number, time?: string) {
@@ -24,24 +65,24 @@ export function useSpotWeather(lat?: number, lng?: number, time?: string) {
         const fetchWeather = async () => {
             setLoading(true);
             const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+            const cache = getCache();
 
             try {
-                // If we have cached data for this location
-                if (weatherCache[key]) {
-                    processWeatherData(weatherCache[key], time);
+                // Check Cache (Valid for 1 hour)
+                if (cache[key] && (Date.now() - cache[key].timestamp < CACHE_DURATION)) {
+                    processWeatherData(cache[key].data, time);
                     setLoading(false);
                     return;
                 }
 
                 // Fetch from Open-Meteo
-                // We request: temperature_2m, weather_code, is_day
-                // Forecast for today and tomorrow to cover most planning scenarios? 
-                // Using 'forecast_days=3' to be safe.
+                // Expanded for Detail View: Daily + Hourly
                 const params = new URLSearchParams({
                     latitude: lat.toString(),
                     longitude: lng.toString(),
                     hourly: 'temperature_2m,weather_code,is_day',
-                    forecast_days: '3',
+                    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset',
+                    forecast_days: '10', // Secure enough data for "Next 7 Days excluding today"
                     timezone: 'auto'
                 });
 
@@ -49,7 +90,10 @@ export function useSpotWeather(lat?: number, lng?: number, time?: string) {
                 if (!res.ok) throw new Error('Weather API error');
 
                 const data = await res.json();
-                weatherCache[key] = data; // Cache the raw response
+
+                // Update Cache
+                setCache(key, data);
+
                 processWeatherData(data, time);
 
             } catch (err) {
@@ -65,56 +109,32 @@ export function useSpotWeather(lat?: number, lng?: number, time?: string) {
 
             const { time: times, temperature_2m, weather_code, is_day } = data.hourly;
 
-            let index = 0; // Default to current time (or first index)
+            // Find Current/Target Temp
+            let index = 0;
+            const targetDate = targetTime ? parseISO(targetTime) : new Date();
 
-            if (targetTime) {
-                // Find closest hour
-                const targetDate = parseISO(targetTime);
-
-                // If target is in the past or too far future where API has no data (OpenMeteo free is 7 days usually)
-                // We might fallback to current weather or show nothing.
-                // For this MVP, let's try to match.
-
-                // Find index with smallest time difference
-                let minDiff = Infinity;
-
-                for (let i = 0; i < times.length; i++) {
-                    const forecastTime = new Date(times[i]);
-                    const diff = Math.abs(differenceInHours(targetDate, forecastTime));
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        index = i;
-                    }
-                }
-            } else {
-                // Current time index
-                // OpenMeteo returns 'time' as ISO strings usually
-                // Simple search
-                const now = new Date();
-                let minDiff = Infinity;
-                for (let i = 0; i < times.length; i++) {
-                    const forecastTime = new Date(times[i]);
-                    const diff = Math.abs(differenceInHours(now, forecastTime));
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        index = i;
-                    }
+            let minDiff = Infinity;
+            for (let i = 0; i < times.length; i++) {
+                const forecastTime = new Date(times[i]);
+                const diff = Math.abs(differenceInHours(targetDate, forecastTime));
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    index = i;
                 }
             }
 
             setWeather({
                 temp: temperature_2m[index],
                 code: weather_code[index],
-                isDay: is_day[index]
+                isDay: is_day[index],
+                hourly: data.hourly,
+                daily: data.daily
             });
         };
 
         fetchWeather();
 
-        return () => {
-            // Abort controller could be here, but for simple fetch/cache logic we'll skip for brevity 
-            // unless strictly needed.
-        };
+        return () => { };
     }, [lat, lng, time]);
 
     return { weather, loading, error };

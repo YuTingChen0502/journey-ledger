@@ -25,12 +25,17 @@ const WEATHER_FORECAST: Record<string, { temp: string; condition: string; icon: 
     '2026-02-07': { temp: '11°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
 };
 
+// import { useAuth } from '@/context/AuthContext';
+
 export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
+    // const { user } = useAuth();
+    // const userId = user?.id || 'guest';
     const { result: events } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
             selector: {
                 trip_id: { $eq: tripId },
+                // owner_id: { $eq: userId }, // REMOVED: Shared Workspace Mode
                 is_deleted: { $eq: false },
                 is_floating: { $eq: false }, // Only scheduled events in Viewer? Or show floating at bottom?
                 // For Vertical Timeline, usually only timed events fit well unless we have a section.
@@ -122,7 +127,7 @@ export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
             </div>
 
             {/* Single Day Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-8">
+            <div className="flex-1 overflow-y-auto px-6 py-8 pb-32">
                 {(() => {
                     const currentDayData = days.find(d => d[0] === selectedDay);
                     if (!currentDayData) return null;

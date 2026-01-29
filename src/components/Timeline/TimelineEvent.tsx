@@ -52,6 +52,8 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
         transform: CSS.Translate.toString(transform),
         zIndex: isDragging ? 50 : (isResizing ? 40 : 10),
         opacity: isDragging ? 0 : 1, // Hide original when dragging
+        touchAction: 'manipulation', // v0.9.10 Fix: Allow native browser handling (Scroll+Zoom), block double-tap
+        userSelect: 'none', // Prevent text selection
         ...style,
     };
 
@@ -61,9 +63,12 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
         finalStyle.zIndex = 40;
     }
     if (isOverlay) {
-        finalStyle.opacity = 0.9;
+        finalStyle.opacity = 0.95; // Slightly more opaque
         finalStyle.cursor = 'grabbing';
         finalStyle.zIndex = 999;
+        finalStyle.transform = `${finalStyle.transform || ''} scale(1.03)`; // Lifting effect
+        finalStyle.boxShadow = '0 8px 20px rgba(0,0,0,0.2)'; // Soft drop shadow
+        finalStyle.transition = 'none'; // Instant follow
     }
 
     const handleResizeStart = (e: React.PointerEvent) => {
@@ -191,9 +196,9 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
             )}
 
             <Card className={cn(
-                "h-full overflow-hidden transition-shadow select-none relative group",
+                "h-full overflow-hidden transition-shadow select-none relative group glass-card", // v0.10.0: Added glass-card
                 (isDragging || isOverlay) ? "shadow-xl ring-2 ring-primary" : "shadow-sm hover:shadow-lg cursor-pointer",
-                "bg-card border-l-4 border-l-primary"
+                "border-l-4 border-l-primary" // Removed bg-card to let glass effect work
             )}>
                 <CardContent className="p-2 flex flex-col h-full gap-1">
                     <div className="flex items-start justify-between gap-1">
@@ -201,12 +206,12 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                         <div
                             {...attributes}
                             {...listeners}
-                            className={cn("cursor-grab active:cursor-grabbing text-muted-foreground p-1 -m-1 hover:bg-muted rounded-full transition-colors", isResizing && "pointer-events-none")}
+                            className={cn("cursor-grab active:cursor-grabbing text-muted-foreground p-4 -m-4 hover:bg-muted rounded-full transition-colors relative z-20", isResizing && "pointer-events-none")}
                             onClick={(e) => e.stopPropagation()} // Keep drag handle from triggering detail view
                         >
                             <GripVertical className="h-3 w-3" />
                         </div>
-                        <div className="flex-1 min-w-0 font-medium text-sm truncate">
+                        <div className="flex-1 min-w-0 font-extrabold text-[1.1rem] leading-[1.2] whitespace-normal mb-1">
                             {event.title}
                         </div>
                         {!isDragging && !isOverlay && (
@@ -221,7 +226,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                         )}
                     </div>
 
-                    <div className="flex-1 min-h-0 text-xs text-muted-foreground leading-tight">
+                    <div className="flex-1 min-h-0 text-[0.85rem] font-semibold opacity-80 leading-tight">
                         {event.start_time && <div>{safeFormatTime(event.start_time)}</div>}
                     </div>
 

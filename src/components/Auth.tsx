@@ -5,14 +5,35 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 
+import { removeRxDatabase } from 'rxdb';
+import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
+
 export function Auth() {
     const [loading, setLoading] = useState(false)
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
 
+    // Clean Room Protocol:
+    // Wipes the local database to ensure no Ghost Data persists from previous "guest" sessions
+    // or from other users on the same device.
+    const cleanRoom = async () => {
+        try {
+            console.log('🧹 Clean Room Protocol Initiated...');
+            // We use the same storage instance or a fresh one. 
+            // Since initDB uses a singleton storage, we should try to match it or get a fresh one.
+            const storage = getRxStorageDexie();
+            await removeRxDatabase('tripdb', storage);
+            console.log('✨ Clean Room Complete: Local DB Wiped.');
+        } catch (err) {
+            console.warn('Clean Room Warning (Safe to ignore if DB was empty):', err);
+        }
+    };
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
+
+        // 1. Authenticate with Supabase first
         const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
@@ -20,6 +41,13 @@ export function Auth() {
 
         if (error) {
             alert(error.message)
+        } else {
+            // 2. SUCCESS! Before the AuthContext sees the session (or before we redirect), 
+            // WE NUKE THE LOCAL DB.
+            // Note: AuthContext subscription fires almost instantly. 
+            // However, wiping NOW ensures that when the App mounts (which happens after session is set),
+            // it starts with a fresh empty DB.
+            await cleanRoom();
         }
         setLoading(false)
     }

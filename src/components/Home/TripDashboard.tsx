@@ -11,7 +11,7 @@ export function TripDashboard({ onNavigate }: TripDashboardProps) {
     const { t } = useTranslation();
 
     return (
-        <div className="h-full flex flex-col items-center justify-center p-6 space-y-12 animate-in fade-in duration-500 relative">
+        <div className="h-full flex flex-col items-center justify-center p-6 space-y-12 animate-in fade-in duration-500 relative overflow-y-auto pb-32">
             {/* Settings Control - Aligned with Content */}
             <div className="w-full max-w-4xl flex justify-end px-4">
                 <GlobalSettingsControl />
@@ -39,8 +39,8 @@ export function TripDashboard({ onNavigate }: TripDashboardProps) {
                     className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-8 flex flex-col items-center justify-center gap-6 min-h-[280px]"
                     onClick={() => onNavigate('overview')}
                 >
-                    <div className="h-20 w-20 rounded-full bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <CalendarDays className="h-10 w-10 text-indigo-600" />
+                    <div className="h-20 w-20 rounded-full bg-[rgba(20,184,166,0.1)] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Map className="h-10 w-10 text-[#0f766e]" />
                     </div>
                     <div className="text-center space-y-2">
                         <h3 className="text-2xl font-serif font-semibold text-foreground">{t('dashboard.overview.title')}</h3>
@@ -55,8 +55,8 @@ export function TripDashboard({ onNavigate }: TripDashboardProps) {
                     className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-8 flex flex-col items-center justify-center gap-6 min-h-[280px]"
                     onClick={() => onNavigate('planner')}
                 >
-                    <div className="h-20 w-20 rounded-full bg-rose-50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                        <Map className="h-10 w-10 text-rose-600" />
+                    <div className="h-20 w-20 rounded-full bg-[rgba(249,115,22,0.1)] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <CalendarDays className="h-10 w-10 text-[#c2410c]" />
                     </div>
                     <div className="text-center space-y-2">
                         <h3 className="text-2xl font-serif font-semibold text-foreground">{t('dashboard.planning.title')}</h3>

@@ -36,20 +36,26 @@ import { safeFormatTime } from '@/lib/dateUtils'
 import { toast } from 'sonner' // Assuming sonner is available (used in ImportModal)
 import { useTranslation } from '@/hooks/useTranslation'
 
+// import { useAuth } from '@/context/AuthContext';
+
 export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
     const { t } = useTranslation()
+    // const { user } = useAuth()
+    // const userId = user?.id || 'guest'
+
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const { result: data, isFetching } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
             selector: {
-                is_deleted: { $eq: false }
+                is_deleted: { $eq: false },
+                // owner_id: { $eq: userId } // REMOVED: Shared Workspace Mode
             },
             sort: [{ updated_at: 'desc' }]
         })
     )
 
-    const [sorting, setSorting] = useState<SortingState>([])
+    const [sorting, setSorting] = useState<SortingState>([{ id: 'start_time', desc: false }]) // v0.10.7: Default sort by start_time
 
     // Batch Delete Safety State
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -61,16 +67,9 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
 
         setIsDeleting(true);
         try {
-            // Find all non-deleted events for this view (implicit trip_id usually, but here we scan all loaded)
-            // Ideally we filter by trip_id, but the current query doesn't show trip_id prop passed to TripTable.
-            // Assuming the current collection context or data list is sufficient.
-            // Safe approach: Remove IDs present in the current data view.
-
+            // Find all non-deleted events for this view
             const idsToDelete = data.map(d => d.id);
             if (idsToDelete.length === 0) return;
-
-            // Proper RxDB Batch Pattern: Find docs -> Update
-            // Or simpler: collection.find({ selector: { id: { $in: idsToDelete } } }).update({ $set: { is_deleted: true } })
 
             const docs = await collection?.find({
                 selector: {
@@ -110,7 +109,17 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
         },
         {
             accessorKey: 'is_floating',
-            header: t('grid.header.type'),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                    >
+                        {t('grid.header.type')}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
             cell: ({ row }) => {
                 const isFloating = row.getValue('is_floating');
                 return isFloating ?
@@ -129,7 +138,17 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
         },
         {
             accessorKey: 'start_time',
-            header: t('grid.header.start_time'),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                    >
+                        {t('grid.header.start_time')}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
             cell: ({ row }) => {
                 const val = row.getValue('start_time') as string;
                 return safeFormatTime(val);
@@ -137,7 +156,17 @@ export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
         },
         {
             accessorKey: 'location',
-            header: t('grid.header.location'),
+            header: ({ column }) => {
+                return (
+                    <Button
+                        variant="ghost"
+                        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                    >
+                        {t('grid.header.location')}
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                )
+            },
         },
         {
             id: 'actions',

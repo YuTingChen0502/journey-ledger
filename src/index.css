@@ -53,7 +53,7 @@
     --text-4xl: 2.25rem;
     --text-5xl: 3rem;
     --text-6xl: 3.75rem;
-    
+
     /* Leading (Line Height) */
     --leading-none: 1;
     --leading-tight: 1.25;
@@ -108,7 +108,8 @@
   [lang="zh-TW"] {
     --tracking-normal: 0.05em;
     --tracking-wide: 0.08em;
-    --tracking-tight: 0em; /* Avoids cramping complex characters */
+    --tracking-tight: 0em;
+    /* Avoids cramping complex characters */
   }
 
   /* ... Dark mode omitted for journal style preference, fallback to standard dark if needed ... */
@@ -136,18 +137,85 @@
 }
 
 @layer base {
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    /* Revert v0.9.4: Allow growth */
+    width: 100vw;
+    overflow-y: visible !important;
+    /* Revert v0.9.4: Restore native scroll */
+    overflow-x: hidden;
+    position: static !important;
+    /* Revert v0.9.4: Unlock */
+    margin: 0;
+    padding: 0;
+  }
+
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
-    /* Subtle Paper Texture Pattern */
-    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+
+    /* v0.10.0: Modern Travel Aesthetic */
+    background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
 
     /* Smooth Transition for Typography & Spacing */
     transition: color 0.3s ease, background-color 0.3s ease, font-size 0.3s ease, line-height 0.3s ease, letter-spacing 0.3s ease;
+  }
+
+  /* Ambient Orbs */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -10vh;
+    right: -10vw;
+    width: 60vw;
+    height: 60vw;
+    background: radial-gradient(circle, rgba(255, 183, 178, 0.4) 0%, rgba(255, 183, 178, 0) 70%);
+    /* Soft Peach/Red */
+    filter: blur(80px);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -10vh;
+    left: -10vw;
+    width: 70vw;
+    height: 70vw;
+    background: radial-gradient(circle, rgba(169, 222, 249, 0.4) 0%, rgba(169, 222, 249, 0) 70%);
+    /* Soft Blue */
+    filter: blur(90px);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  /* Glassmorphism Utility */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.75) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .dark .glass-card {
+    background: rgba(30, 30, 30, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
   }
 
   h1,
@@ -157,5 +225,34 @@
   h5,
   h6 {
     font-family: 'Playfair Display', serif;
+  }
+
+  /* v0.9.13 HOTFIX: Force Fixed Column Widths */
+  .day-column {
+    flex: 0 0 31vw !important;
+    /* Don't grow, don't shrink, stay at 31% screen width */
+    width: 31vw !important;
+    max-width: 31vw !important;
+    box-sizing: border-box;
+  }
+
+  /* LANDSCAPE MODE */
+  @media (orientation: landscape) {
+    .day-column {
+      flex: 0 0 25vw !important;
+      /* Force 1/4 screen width */
+      width: 25vw !important;
+      max-width: 25vw !important;
+    }
+  }
+
+  /* TABLET/DESKTOP */
+  @media (min-width: 1024px) {
+    .day-column {
+      flex: 0 0 20vw !important;
+      /* Force 1/5 screen width */
+      width: 20vw !important;
+      max-width: 20vw !important;
+    }
   }
 }
