@@ -65,7 +65,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 
 ## Phase Status
 
-Current phase: Phase 9 — Weather / Location Cleanup
+Current phase: Phase 10 — Archive/Status + Final Hardening
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -130,23 +130,29 @@ Completed:
   - **Docs:** `README.md` finalized (features, quotas, local setup with `.env.example`, env vars + anon-key-only warning). New `docs/DEPLOYMENT.md` (Supabase setup checklist, bootstrap SQL, RLS, realtime, env vars, build/output, post-deploy smoke test). `supabase/README.md` gained a **backend quota enforcement design note** (frontend = UX only; recommended trigger/RPC/RLS/edge-function approaches; current risk = low because RLS already scopes rows per owner).
   - **Lint:** as a tiny safe fix in a touched file, `t(\`wmo.${...}\` as any)` → `as TranslationKey` in `WeatherDetailSheet.tsx` (type-only; behavior unchanged), clearing its 2 pre-existing `any` errors.
   - Build/lint/test result: build passed (no `noise.png` warning); `npm test` 39/39 pass; targeted eslint on touched files **0 errors / 0 warnings**.
+- **Phase 9 — weather / location cleanup.** Removed the mock weather; no schema changes.
+  - **TripViewer:** deleted the `WEATHER_FORECAST` mock (keyed to Nagoya 2026 dates) + the header weather widget + unused `Cloud/Sun/CloudRain/Snowflake` imports. TripViewer no longer shows any trip-level weather (it would be fake for arbitrary trips). Title/date-range/day-tabs/`buildTripDays` behavior unchanged.
+  - **Event weather preserved:** `EventDetailView` + `SpotWeather` + `useSpotWeather` already use **real, coordinate-based** Open-Meteo data (keyless) keyed to the event's own location; widget hidden when no coordinates. Left as-is (no Nagoya default).
+  - **Geocoding:** already generic/keyless (Open-Meteo + Nominatim, neutral `null` fallback). Only change: genericized the one Nagoya example comment.
+  - **Docs:** README gained a "Weather & location" note (event-level real weather, keyless; trip-level forecast deferred).
+  - No new pure helpers → no new tests. Build passed; `npm test` 39/39; targeted eslint on TripViewer/geocoding **0 errors / 0 warnings**.
 
-## Hardcode classification (Phase 8 release audit)
+## Hardcode classification (Phase 9 release audit)
 
 Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` references:
 - **Allowed legacy seed/demo data:** `src/db/trips.ts` (`LEGACY_TRIP_ID` + seeded "Nagoya 2026" trip + its dates). Adopt-existing-events data, not active routing.
-- **Allowed comments:** `src/App.tsx` (bootstrap comment), `src/lib/parser.ts` (date-header regex example), `src/services/geocoding.ts` (example string).
+- **Allowed comments:** `src/App.tsx` (bootstrap comment), `src/lib/parser.ts` (date-header regex example), `src/components/TripViewer/TripViewer.tsx` (Phase 9 note documenting the mock-weather removal). `src/services/geocoding.ts` example is now generic (no Nagoya).
 - **Allowed legacy fallback constants:** `src/context/SettingsContext.tsx` `LEGACY_KEY_LANG`/`LEGACY_KEY_FONT` (`nagoya_*`) — read-once migration only.
-- **Deferred to Phase 9 (harmless):** `src/components/TripViewer/TripViewer.tsx` mock `WEATHER_FORECAST` keyed to 2026 dates — hidden for non-legacy trips; not real weather.
+- **REMOVED in Phase 9:** the mock `WEATHER_FORECAST` (Nagoya 2026 dates) is gone from TripViewer. No active component shows mock/Nagoya weather. Real weather is event-coordinate-based only.
 - **DELETED in Phase 8:** dead `LandingPage.tsx`; Nagoya-themed `public/` binaries (`home_icon.jpg`, `splash-cover.jpg`, `pwa-icon.png`, `castle_logo.jpg`, `splash-logo*.{png,jpg}`, `vite.svg`). Active branding is now the neutral `public/logo.svg`.
-- **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset implies all trips are Nagoya.
+- **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset/weather implies all trips are Nagoya.
 
 In progress:
-- (none — Phase 8 complete)
+- (none — Phase 9 complete)
 
 Next:
-- **Phase 9 — Weather / Location cleanup:** replace/remove the mock `WEATHER_FORECAST` (keyed to legacy 2026 dates) so no trip implies Nagoya; tidy location/geocoding behavior.
 - **Phase 10 — Archive/Status + final hardening:** trip archive/status (needs a deliberate `trips` schema-version migration); backend quota enforcement; legacy lint-debt cleanup; optional cascade soft-delete of a trip's events on delete (behind explicit confirmation).
+- **Post-release backlog / maintenance:** real trip-level (per-day) weather forecast; raster PWA icons if a platform needs them; ongoing dependency/audit upkeep.
 
 ## Architecture Changes (running log)
 
@@ -158,6 +164,7 @@ Next:
 - **Phase 6:** `src/lib/` pure-logic layer + Vitest (`vitest run`): `quotas.ts` (frontend UX quotas, enforced in Create/Event/Import/Detail), `dateRange.ts` (`buildTripDays`), `tripScoping.ts` (`tripEventsSelector`). Supabase RLS/setup docs expanded. No schema/replication/UI changes.
 - **Phase 7:** Trip management without schema change — `EditTripModal` (soft `incrementalPatch`), soft-delete from TripLibrary (`is_deleted=true`, events untouched), and `src/lib/selectedTrip.ts` persistence (`journey_ledger_selected_trip_id`). `AppContent` now resolves the persisted selection, excludes deleted trips, and recovers to the library via derived state (no setState-in-effect, no infinite loading). `dateRange.ts` gained `isValidTripDateRange` (used by Create + Edit). Archive deferred (no schema field).
 - **Phase 8:** Release polish only. Single neutral brand asset `public/logo.svg` replaces all Nagoya binaries (favicon, splash, workspace logo, PWA manifest icon); unused image binaries + dead `LandingPage.tsx` deleted. `noise.png` reference removed (build warning gone). Docs finalized: `README.md`, new `docs/DEPLOYMENT.md`, backend-quota design note in `supabase/README.md`. No data-layer, schema, or behavior changes.
+- **Phase 9:** Mock trip weather removed. TripViewer no longer renders trip-level weather (the `WEATHER_FORECAST` Nagoya mock is deleted); the only weather in the app is real, event-coordinate-based Open-Meteo data in `EventDetailView`/`SpotWeather`/`useSpotWeather` (keyless, hidden when no coordinates). Geocoding unchanged (Open-Meteo + Nominatim, keyless). No schema/replication changes.
 
 ## Known Risks (running log)
 

@@ -76,7 +76,7 @@ export async function searchLocation(query: string): Promise<GeocodingResult | n
     if (result) return result;
 
     // 2. Fallback: Try specific parts with OpenMeteo again (often faster than Nominatim retry)
-    // E.g. "Nagoya Station, Aichi" -> "Nagoya Station"
+    // E.g. "Central Station, Downtown" -> "Central Station"
     const parts = query.split(',').map(s => s.trim()).filter(s => s.length > 2);
     if (parts.length > 1) {
         result = await fetchOpenMeteo(parts[0]); // Venue name

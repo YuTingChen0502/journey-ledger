@@ -14,6 +14,10 @@
 * **Event detail** — notes, checklist, location, weather, and one-tap navigation.
 * **Offline-first** — full operation without a network; auto-sync when online.
 
+### Weather & location
+
+Weather is **event-level and real**: when an event has a location/coordinates, Journey Ledger fetches a coordinate-based forecast from the keyless public [Open-Meteo](https://open-meteo.com/) API (geocoding via Open-Meteo + OpenStreetMap Nominatim). **No weather/geocoding API key or secret is required.** If an event has no location, the weather widget is simply hidden. Trip-level (per-day) forecast is **not** shown yet — it is deferred future work; the old mock trip weather was removed in Phase 9.
+
 ## Tech stack
 
 * **React + TypeScript + Vite** — frontend.

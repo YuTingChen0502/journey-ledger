@@ -3,7 +3,7 @@ import { useRxData } from 'rxdb-hooks';
 import type { TripEventDocType } from '@/db/schema';
 import type { TripDocType } from '@/db/tripSchema';
 import { format, parseISO, isValid } from 'date-fns';
-import { MapPin, Info, Cloud, Sun, CloudRain, Snowflake } from 'lucide-react';
+import { MapPin, Info } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import DOMPurify from 'dompurify';
@@ -15,21 +15,10 @@ interface TripViewerProps {
     onEventClick: (id: string) => void;
 }
 
-// NOTE (Phase 4): mock weather keyed by the legacy Nagoya 2026 dates. Harmless
-// for other trips — unknown dates simply render "--". Real per-trip weather is
-// out of scope here; do not treat this as trip data.
-const WEATHER_FORECAST: Record<string, { temp: string; condition: string; icon: React.ElementType; colorClass: string }> = {
-    '2026-01-31': { temp: '6°C', condition: 'Cloudy', icon: Cloud, colorClass: 'text-slate-500' },
-    '2026-02-01': { temp: '9°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
-    '2026-02-02': { temp: '5°C', condition: 'Rain', icon: CloudRain, colorClass: 'text-indigo-900/70' },
-    '2026-02-03': { temp: '8°C', condition: 'Clear', icon: Sun, colorClass: 'text-amber-600/80' },
-    '2026-02-04': { temp: '2°C', condition: 'Snow', icon: Snowflake, colorClass: 'text-slate-400' },
-    '2026-02-05': { temp: '5°C', condition: 'Cloudy', icon: Cloud, colorClass: 'text-slate-500' },
-    '2026-02-06': { temp: '10°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
-    '2026-02-07': { temp: '11°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
-};
-
-// import { useAuth } from '@/context/AuthContext';
+// Phase 9: the legacy mock weather (keyed to Nagoya 2026 dates) was removed.
+// TripViewer no longer shows trip-level weather — it would be fake for arbitrary
+// trips. Event-level weather (real, coordinate-based via Open-Meteo) lives in
+// EventDetailView. Real trip-level forecast is deferred future work.
 
 export function TripViewer({ trip, onEventClick }: TripViewerProps) {
     const { result: events } = useRxData<TripEventDocType>(
@@ -79,27 +68,14 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
         return `${format(first, 'MMM d')} — ${format(last, 'MMM d')}`;
     }, [trip.start_date, trip.end_date]);
 
-    // Weather Logic (mock; see WEATHER_FORECAST note). Only shown when there is
-    // mock data for the day so non-legacy trips don't display placeholder/Nagoya
-    // weather. Real per-trip weather is out of scope for Phase 5.
-    const currentWeather = WEATHER_FORECAST[effectiveDay];
-    const WeatherIcon = currentWeather?.icon ?? Cloud;
-
     return (
         <div className="flex flex-col h-full bg-background relative">
-            {/* Header: Dates & Weather */}
+            {/* Header: Trip title & date range */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur z-20 sticky top-0">
                 <div>
                     <h1 className="text-3xl font-serif text-primary">{trip.title}</h1>
                     <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">{tripDateRange}</p>
                 </div>
-                {/* Weather Widget: shown only when mock data exists for the day */}
-                {currentWeather && (
-                    <div className="flex items-center gap-1.5 bg-muted/40 px-3 py-1.5 rounded-full backdrop-blur-sm border border-border/20">
-                        <WeatherIcon className={`h-4 w-4 stroke-[1.5px] ${currentWeather.colorClass}`} />
-                        <span className={`text-sm font-medium ${currentWeather.colorClass}`}>{currentWeather.temp}</span>
-                    </div>
-                )}
             </div>
 
             {/* Day Selector (Tabs) */}
