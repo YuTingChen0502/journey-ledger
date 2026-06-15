@@ -1,10 +1,25 @@
-import { useRxData } from 'rxdb-hooks'
+import { useState } from 'react'
+import { useRxData, useRxCollection } from 'rxdb-hooks'
 import { LogOut, Luggage } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction,
+} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
 import type { TripDocType } from '@/db/tripSchema'
 import { useAuth } from '@/context/AuthContext'
+import { useTranslation } from '@/hooks/useTranslation'
+import { loadSelectedTripId, clearSelectedTripId } from '@/lib/selectedTrip'
 import { TripCard } from './TripCard'
 import { CreateTripModal } from './CreateTripModal'
+import { EditTripModal } from './EditTripModal'
 
 interface TripLibraryProps {
     onSelectTrip: (tripId: string) => void
@@ -13,7 +28,44 @@ interface TripLibraryProps {
 
 export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
     const { user } = useAuth()
+    const { t } = useTranslation()
     const ownerId = user?.id ?? ''
+    const collection = useRxCollection<TripDocType>('trips')
+
+    const [editingTrip, setEditingTrip] = useState<TripDocType | null>(null)
+    const [editOpen, setEditOpen] = useState(false)
+    const [tripPendingDelete, setTripPendingDelete] = useState<TripDocType | null>(null)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const handleEdit = (trip: TripDocType) => {
+        setEditingTrip(trip)
+        setEditOpen(true)
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!collection || !tripPendingDelete) return
+        setIsDeleting(true)
+        try {
+            const doc = await collection.findOne(tripPendingDelete.id).exec()
+            if (doc) {
+                // Soft-delete only: hide the trip, never hard-delete. Events are
+                // intentionally left untouched (kept under their trip_id).
+                await doc.incrementalPatch({ is_deleted: true, updated_at: Date.now() })
+            }
+            // If the deleted trip was the persisted selection, forget it so a
+            // future reload starts at the library instead of failing to resolve.
+            if (loadSelectedTripId() === tripPendingDelete.id) {
+                clearSelectedTripId()
+            }
+            toast.success(t('trip.deleted'))
+            setTripPendingDelete(null)
+        } catch (err) {
+            console.error('Failed to delete trip', err)
+            toast.error(t('trip.delete_failed'))
+        } finally {
+            setIsDeleting(false)
+        }
+    }
 
     // Only this user's non-deleted trips. Replication already scopes by user via
     // RLS, but we filter locally too for correctness and clarity.
@@ -70,11 +122,40 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {trips.map((trip) => (
-                            <TripCard key={trip.id} trip={trip} onSelect={onSelectTrip} />
+                            <TripCard
+                                key={trip.id}
+                                trip={trip}
+                                onSelect={onSelectTrip}
+                                onEdit={handleEdit}
+                                onDelete={setTripPendingDelete}
+                            />
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* Edit trip */}
+            <EditTripModal trip={editingTrip} open={editOpen} onOpenChange={setEditOpen} />
+
+            {/* Soft-delete confirmation */}
+            <AlertDialog open={!!tripPendingDelete} onOpenChange={(open) => !open && setTripPendingDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{t('trip.delete.title')}</AlertDialogTitle>
+                        <AlertDialogDescription>{t('trip.delete.desc')}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>{t('btn.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => { e.preventDefault(); handleConfirmDelete() }}
+                            disabled={isDeleting}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {t('trip.delete.confirm')}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

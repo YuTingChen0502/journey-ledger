@@ -58,10 +58,11 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 * **Phase 4:** remove Nagoya hardcoding, make event views trip-scoped and date-driven.
 * **Phase 5:** UI/UX rebrand and remove photo UI.
 * **Phase 6:** quota, tests, RLS documentation, and release cleanup.
+* **Phase 7:** trip edit / soft-delete + selected-trip persistence & recovery.
 
 ## Phase Status
 
-Current phase: Post-Phase-6 backlog / maintenance
+Current phase: Post-Phase-7 backlog / maintenance
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -110,6 +111,15 @@ Completed:
   - **Tests:** added `"test": "vitest run"`. New suites `quotas.test.ts` (15), `dateRange.test.ts` (7), `tripScoping.test.ts` (4) + existing `dateUtils.test.ts` (4) = **30 passing**. Covers quota below/at/above limits, import-batch-exceeds-capacity rejection, date ranges (1-day/multi-day/inverted/invalid/cap), and trip-scoped selector correctness.
   - **Docs:** `supabase/README.md` expanded — required tables/columns, RLS expectations (own-row select/insert/update, no hard delete, soft-delete via `deleted=true`), realtime publication, anon-key-only / never-ship-`service_role`, post-setup verification steps.
   - Build/lint/test result: build passed; `npm test` 30/30 pass; no new lint errors in touched files (pre-existing `any` in ImportModal/TripTable catch blocks + EventModal `setOpen` warning remain as legacy debt; new lib + test files clean).
+  - **Phase 6 lint polish patch:** `catch (err: any)` → `catch (err: unknown)` (with safe `err instanceof Error ? err.message : '…'`) in ImportModal/TripTable. Targeted eslint now 0 errors (only the documented EventModal `setOpen` warning remains).
+- **Phase 7 — trip edit / soft-delete + selected-trip persistence.** Practical trip management; no schema change.
+  - **Edit:** new `src/components/Trips/EditTripModal.tsx` (controlled). Edits title/destination/start_date/end_date/timezone/description; preserves `id`/`owner_id`/`created_at`; updates `updated_at`; validates required fields + `end_date >= start_date` (via new `isValidTripDateRange`). Patches via `incrementalPatch` — events untouched. CreateTripModal now uses the same range validation.
+  - **Soft-delete:** TripCard has Edit/Delete actions (`stopPropagation` so they don't open the trip); TripLibrary shows a confirm `AlertDialog`, then soft-deletes (`is_deleted=true`, bump `updated_at`) — **no hard delete**, **events left untouched**. Deleted trip drops from the library (existing `is_deleted=false` filter). If the deleted trip was the persisted selection, its stored id is cleared.
+  - **Selected-trip persistence:** new `src/lib/selectedTrip.ts` (`load`/`save`/`clear`, key `journey_ledger_selected_trip_id`, ignores empty). `App.tsx` inits `selectedTripId` from storage and persists on select; **"All Trips" (logo/title/back-to-library) clears it** so a later reload starts at the library; selecting a trip persists it so reload reopens it.
+  - **Recovery:** AppContent query excludes deleted trips; a selected id that resolves to no non-deleted doc (deleted/removed externally) renders the library via **derived state** (no setState-in-effect) and clears the stored id in an effect — no infinite "Loading trip…".
+  - **Archive: DEFERRED.** The `trips` schema has no status/archive field; adding one is an RxDB schema-version migration (risky) — not done this phase per scope. Soft-delete (hide) covers the immediate need.
+  - **i18n:** added trip edit/delete/confirm/save/invalid-range copy (en + zh-TW). **Tests:** `selectedTrip.test.ts` (5; in-memory localStorage stub) + `isValidTripDateRange` cases added to `dateRange.test.ts` → **39 tests pass**.
+  - Build/lint/test result: build passed; `npm test` 39/39 pass; targeted eslint on touched files **0 errors / 0 warnings**.
 
 ## Hardcode classification (Phase 6 release audit)
 
@@ -122,15 +132,15 @@ Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` r
 - **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no product copy implies all trips are Nagoya.
 
 In progress:
-- (none — Phase 6 complete)
+- (none — Phase 7 complete)
 
-Next (Post-Phase-6 backlog / maintenance — recommended small phases):
-1. Trip edit / delete / archive (+ graceful recovery when a selected trip is missing).
-2. Selected-trip persistence across reloads (e.g. `localStorage`).
-3. Public asset refresh (de-Nagoya logo/splash) + delete dead `LandingPage.tsx`.
+Next (Post-Phase-7 backlog / maintenance — recommended small phases):
+1. Trip **archive / status** (deferred from Phase 7 — needs a `trips` schema-version migration; do it deliberately).
+2. Public asset refresh (de-Nagoya logo/splash) + delete dead `LandingPage.tsx`.
+3. Real per-trip weather (replace mock `WEATHER_FORECAST`).
 4. Backend quota enforcement (per-user trips / per-trip events) — frontend quotas are UX-only.
 5. Legacy lint-debt cleanup (remaining `no-explicit-any` / react-hooks items in untouched legacy files).
-6. Real per-trip weather (replace mock `WEATHER_FORECAST`).
+6. (Optional) cascade soft-delete of a trip's events on trip delete, behind explicit confirmation (Phase 7 intentionally leaves events untouched).
 
 ## Architecture Changes (running log)
 
@@ -139,6 +149,8 @@ Next (Post-Phase-6 backlog / maintenance — recommended small phases):
 - **Phase 3:** Workspace extracted from `App.tsx` into `src/components/TripWorkspace.tsx`, which takes the resolved `trip` object. `App.tsx` is now a thin router (AppShell → AppContent → TripLibrary | TripWorkspace). TripDashboard displays the selected trip's identity. The legacy `TRIP_ID = 'nagoya-2026'` is now isolated in ONE place (`TripWorkspace`) with an explicit Phase 4 TODO block listing every inner view that still depends on it.
 - **Phase 4:** All core event views/writes are trip-scoped via `trip.id`, and day ranges are derived from `trip.start_date`/`trip.end_date`. The active `nagoya-2026` constant is gone; `nagoya-2026` now only persists as the legacy seed trip's id + its events' `trip_id`. Scoping is enforced at the RxDB query level (`trip_id` selector) in TripViewer/TimelineView/TripTable, at the write level in EventModal/ImportModal (`trip_id: tripId`), and structurally by `key={trip.id}` remounting the workspace. EventDetailView remains id-based but is only fed trip-scoped ids.
 - **Phase 5:** Active UI rebranded to Journey Ledger (i18n copy, TripLibrary, dashboard footer). Photo/base64 upload removed from EventDetailView (existing images read-only; schema unchanged). Mock weather hidden for non-legacy trips. Settings localStorage keys renamed to `journey_ledger_*` with one-time legacy fallback. New header "All Trips" button decouples "return to library" from the logo. No data-layer changes; Phase 4 trip-scoping intact.
+- **Phase 6:** `src/lib/` pure-logic layer + Vitest (`vitest run`): `quotas.ts` (frontend UX quotas, enforced in Create/Event/Import/Detail), `dateRange.ts` (`buildTripDays`), `tripScoping.ts` (`tripEventsSelector`). Supabase RLS/setup docs expanded. No schema/replication/UI changes.
+- **Phase 7:** Trip management without schema change — `EditTripModal` (soft `incrementalPatch`), soft-delete from TripLibrary (`is_deleted=true`, events untouched), and `src/lib/selectedTrip.ts` persistence (`journey_ledger_selected_trip_id`). `AppContent` now resolves the persisted selection, excludes deleted trips, and recovers to the library via derived state (no setState-in-effect, no infinite loading). `dateRange.ts` gained `isValidTripDateRange` (used by Create + Edit). Archive deferred (no schema field).
 
 ## Known Risks (running log)
 
@@ -177,6 +189,12 @@ Next (Post-Phase-6 backlog / maintenance — recommended small phases):
   - Mock weather (`WEATHER_FORECAST` in TripViewer) is still keyed to legacy 2026 dates; now hidden for other trips, but it is not real per-trip weather.
   - `detail.photo.add` translation key is now unused (harmless); the `image` schema field is retained for backward-compatible read-only display.
   - Legacy lint debt persists in untouched legacy files (EventDetailView, SettingsContext react-refresh, etc.) — deferred to Phase 6.
+- **Phase 7 — resolves prior limitations + remaining risks:**
+  - RESOLVED: trip **edit** and **soft-delete** now exist; selected trip is **persisted** across reloads; missing/deleted selection **recovers** to TripLibrary (no more perpetual "Loading trip…").
+  - **Archive still deferred** — `trips` schema has no status/archive field; implementing it requires a deliberate RxDB schema-version migration.
+  - Soft-deleting a trip **does not delete its events** (they remain under their `trip_id`, just hidden because no non-deleted trip references them in the library). Intentional MVP; optional cascade soft-delete is a future opt-in.
+  - Recovery clears only the persisted localStorage id, not the in-memory `selectedTripId` state; the derived view shows the library. Edge: if a soft-deleted trip is later un-deleted (e.g. external re-sync) within the same session, the workspace could reappear. Extremely unlikely; harmless.
+  - Cross-device race: on reload, a persisted trip not yet pulled from Supabase could briefly recover to the library before sync completes (local-first). Acceptable (no infinite load); local/legacy trips are present immediately.
 
 ## Update Policy
 

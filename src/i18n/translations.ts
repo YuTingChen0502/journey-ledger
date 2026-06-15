@@ -9,6 +9,21 @@ export const translations = {
         "dashboard.planning.desc": "Edit schedule, manage data grid, and organize events.",
         "dashboard.footer": "Journey Ledger",
 
+        // Trips (library / edit / delete)
+        "trip.action.edit": "Edit",
+        "trip.action.delete": "Delete",
+        "trip.edit.title": "Edit trip",
+        "trip.btn.save": "Save changes",
+        "trip.btn.saving": "Saving…",
+        "trip.updated": "Trip updated",
+        "trip.update_failed": "Failed to update trip",
+        "trip.invalid_date_range": "End date must be on or after start date.",
+        "trip.delete.title": "Delete this trip?",
+        "trip.delete.desc": "The trip will be hidden from your library. Its events are kept and not deleted. This can be reversed by a developer if needed.",
+        "trip.delete.confirm": "Delete trip",
+        "trip.deleted": "Trip deleted",
+        "trip.delete_failed": "Failed to delete trip",
+
         // Navigation
         "nav.all_trips": "All Trips",
         "nav.back": "Back",
@@ -132,6 +147,21 @@ export const translations = {
         "dashboard.planning.title": "規劃管理",
         "dashboard.planning.desc": "編輯行程表、管理資料表格與活動細節。",
         "dashboard.footer": "Journey Ledger",
+
+        // Trips (library / edit / delete)
+        "trip.action.edit": "編輯",
+        "trip.action.delete": "刪除",
+        "trip.edit.title": "編輯旅行",
+        "trip.btn.save": "儲存變更",
+        "trip.btn.saving": "儲存中…",
+        "trip.updated": "旅行已更新",
+        "trip.update_failed": "更新旅行失敗",
+        "trip.invalid_date_range": "結束日期必須不早於開始日期。",
+        "trip.delete.title": "刪除這個旅行？",
+        "trip.delete.desc": "此旅行將從清單中隱藏，其活動資料會保留、不會被刪除。如有需要可由開發者還原。",
+        "trip.delete.confirm": "刪除旅行",
+        "trip.deleted": "旅行已刪除",
+        "trip.delete_failed": "刪除旅行失敗",
 
         // Navigation
         "nav.all_trips": "所有旅行",

@@ -1,13 +1,19 @@
 import { Card } from '@/components/ui/card'
-import { MapPin, CalendarDays } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { MapPin, CalendarDays, Pencil, Trash2 } from 'lucide-react'
 import type { TripDocType } from '@/db/tripSchema'
+import { useTranslation } from '@/hooks/useTranslation'
 
 interface TripCardProps {
     trip: TripDocType
     onSelect: (tripId: string) => void
+    onEdit: (trip: TripDocType) => void
+    onDelete: (trip: TripDocType) => void
 }
 
-export function TripCard({ trip, onSelect }: TripCardProps) {
+export function TripCard({ trip, onSelect, onEdit, onDelete }: TripCardProps) {
+    const { t } = useTranslation()
+
     return (
         <Card
             role="button"
@@ -25,6 +31,29 @@ export function TripCard({ trip, onSelect }: TripCardProps) {
                 <h3 className="text-xl font-serif font-semibold text-foreground leading-snug">
                     {trip.title}
                 </h3>
+                {/* Action buttons — stopPropagation so they don't open the trip. */}
+                <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        title={t('trip.action.edit')}
+                        aria-label={t('trip.action.edit')}
+                        onClick={(e) => { e.stopPropagation(); onEdit(trip) }}
+                    >
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        title={t('trip.action.delete')}
+                        aria-label={t('trip.action.delete')}
+                        onClick={(e) => { e.stopPropagation(); onDelete(trip) }}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
+                </div>
             </div>
 
             {trip.destination && (

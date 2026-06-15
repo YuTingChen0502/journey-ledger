@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { format } from 'date-fns';
-import { buildTripDays, MAX_TRIP_DAYS } from './dateRange';
+import { buildTripDays, isValidTripDateRange, MAX_TRIP_DAYS } from './dateRange';
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -43,5 +43,22 @@ describe('buildTripDays', () => {
     it('produces consecutive days', () => {
         const days = buildTripDays('2026-06-01', '2026-06-03');
         expect(days.map(ymd)).toEqual(['2026-06-01', '2026-06-02', '2026-06-03']);
+    });
+});
+
+describe('isValidTripDateRange', () => {
+    it('allows a same-day range', () => {
+        expect(isValidTripDateRange('2026-06-01', '2026-06-01')).toBe(true);
+    });
+    it('allows an increasing range', () => {
+        expect(isValidTripDateRange('2026-06-01', '2026-06-10')).toBe(true);
+    });
+    it('blocks an inverted range', () => {
+        expect(isValidTripDateRange('2026-06-10', '2026-06-01')).toBe(false);
+    });
+    it('blocks invalid/empty dates', () => {
+        expect(isValidTripDateRange('', '')).toBe(false);
+        expect(isValidTripDateRange('2026-06-01', 'garbage')).toBe(false);
+        expect(isValidTripDateRange('garbage', '2026-06-01')).toBe(false);
     });
 });

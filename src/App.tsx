@@ -12,6 +12,7 @@ import { Provider, useRxData } from 'rxdb-hooks'
 import type { TripDocType } from './db/tripSchema'
 import { SettingsProvider } from './context/SettingsContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { loadSelectedTripId, saveSelectedTripId, clearSelectedTripId } from './lib/selectedTrip'
 
 function App() {
   return (
@@ -69,32 +70,57 @@ function AppShell() {
 
 // App flow: Auth -> TripLibrary -> TripWorkspace(selectedTrip)
 function AppContent({ signOut }: { signOut: () => Promise<void> }) {
-  // Phase 2/3: trip selection gate. Until a trip is selected, show TripLibrary.
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
+  // Phase 7: trip selection is persisted across reloads (id only).
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(() => loadSelectedTripId())
 
   // Resolve the selected trip object reactively. The hook must run on every
   // render (rules of hooks), so a sentinel id is used when nothing is selected.
-  const { result: tripDocs } = useRxData<TripDocType>('trips', collection =>
+  // Deleted trips are excluded so a soft-deleted selection falls back to library.
+  const { result: tripDocs, isFetching } = useRxData<TripDocType>('trips', collection =>
     collection.find({
-      selector: { id: { $eq: selectedTripId ?? '__none__' } }
+      selector: { id: { $eq: selectedTripId ?? '__none__' }, is_deleted: { $eq: false } }
     })
   )
   const selectedTrip = selectedTripId ? (tripDocs[0] ?? null) : null
 
+  const handleSelectTrip = (tripId: string) => {
+    saveSelectedTripId(tripId)
+    setSelectedTripId(tripId)
+  }
+
+  const handleBackToTrips = () => {
+    clearSelectedTripId()
+    setSelectedTripId(null)
+  }
+
+  // Still resolving the persisted/selected trip from the local DB.
+  const resolvingTrip = !!selectedTripId && isFetching && !selectedTrip
+
+  // Graceful recovery: a persisted/selected trip id that resolves to no
+  // non-deleted document (deleted or removed externally) is dropped from
+  // storage so a future reload starts at TripLibrary. We only clear the
+  // persisted id here (a side effect); the view falls through to the library
+  // below via derived state, avoiding both infinite loading and setState-in-effect.
+  useEffect(() => {
+    if (selectedTripId && !isFetching && !selectedTrip) {
+      clearSelectedTripId()
+    }
+  }, [selectedTripId, isFetching, selectedTrip])
+
   let content: ReactNode
-  if (!selectedTripId) {
-    content = <TripLibrary onSelectTrip={setSelectedTripId} signOut={signOut} />
-  } else if (!selectedTrip) {
-    content = <LoadingSkeleton message="Loading trip..." />
-  } else {
+  if (selectedTrip) {
     content = (
       <TripWorkspace
         key={selectedTrip.id}
         trip={selectedTrip}
-        onBackToTrips={() => setSelectedTripId(null)}
+        onBackToTrips={handleBackToTrips}
         signOut={signOut}
       />
     )
+  } else if (resolvingTrip) {
+    content = <LoadingSkeleton message="Loading trip..." />
+  } else {
+    content = <TripLibrary onSelectTrip={handleSelectTrip} signOut={signOut} />
   }
 
   return (
