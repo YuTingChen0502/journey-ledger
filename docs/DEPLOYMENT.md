@@ -11,7 +11,11 @@ these steps deliberately.
 - [ ] Verify the tables exist (**Table Editor**) with the 5 columns: `id`, `updated_at`, `deleted`, `user_id`, `data`.
 - [ ] Verify **RLS is enabled** on both tables (**Authentication → Policies**), each with SELECT / INSERT / UPDATE policies scoped to `auth.uid() = user_id`, and **no DELETE policy** (soft-delete via `deleted = true`).
 - [ ] Verify **Realtime** includes both tables (**Database → Publications → `supabase_realtime`**).
-- [ ] Configure Auth (email/OAuth providers as desired) and the site URL / redirect URLs.
+- [ ] Configure Auth providers (email/OAuth as desired).
+- [ ] Set **Auth → URL Configuration**:
+  - **Site URL** → your deployed production URL (e.g. `https://your-app.vercel.app`).
+  - **Redirect URLs** → add the production URL (e.g. `https://your-app.vercel.app/**`). You may keep `http://localhost:5173/**` for local dev.
+  - These must match the origin the app is served from, or magic-link / OAuth redirects will fail in production.
 
 See [`../supabase/README.md`](../supabase/README.md) for the full column contract and RLS expectations.
 
@@ -41,6 +45,15 @@ Journey Ledger is a static SPA/PWA — host the build output on any static host
 - [ ] Configure SPA fallback (rewrite all routes to `/index.html`) if your host needs it.
 - [ ] Ensure HTTPS (required for service worker / PWA install).
 
+### Vercel (recommended)
+
+- [ ] Import the repo into Vercel. Framework preset: **Vite** (auto-detected).
+- [ ] Build command: `npm run build` · Output directory: `dist` · Install: `npm install`.
+- [ ] SPA fallback is already provided by [`../vercel.json`](../vercel.json) (rewrites all routes to `/index.html`) — no extra config needed.
+- [ ] Add environment variables in **Project → Settings → Environment Variables** (Production + Preview): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. **Anon key only — never the `service_role`/secret key.**
+- [ ] After the first deploy, copy the production URL into Supabase **Auth → URL Configuration** (Site URL + Redirect URLs, see §1).
+- [ ] Redeploy if you changed env vars after the initial build (Vite inlines `VITE_*` at build time).
+
 ## 4. Post-deploy smoke test
 
 - [ ] App loads; the splash screen clears.
@@ -56,7 +69,78 @@ Journey Ledger is a static SPA/PWA — host the build output on any static host
 - [ ] Go offline → app still works; go back online → data syncs (check a second device/browser).
 - [ ] Install as PWA (icon = Journey Ledger mark).
 
-## 5. Known operational notes
+## 5. RLS / user-isolation smoke test (two accounts)
+
+Confirms Row Level Security keeps each user's trips/events private. Use two
+separate accounts (different emails), ideally in two browsers or one normal + one
+private window.
+
+```text
+Account A:
+- log in
+- create "Trip A"
+- open Trip A, create "Event A"
+
+Account B:
+- log in (separate browser / private window)
+- confirm Trip A and Event A are NOT visible
+- create "Trip B" + "Event B"
+
+Account A:
+- log back in / refresh
+- confirm Trip B and Event B are NOT visible
+```
+
+Expected: each account sees only its own trips/events. If A sees B's data, RLS
+is misconfigured — re-check that RLS is **enabled** and the SELECT policy is
+`auth.uid() = user_id` on **both** `trips` and `trip_events` (see
+[`../supabase/README.md`](../supabase/README.md)).
+
+> Verify server-side too: in Supabase **Table Editor**, the `user_id` column on
+> new rows should equal the creating user's auth id, and a SQL query as one user
+> (via the API with their token) must never return another user's rows.
+
+## 6. Same-account multi-device sync smoke test
+
+Confirms local-first data syncs through Supabase for the same user.
+
+```text
+Account A — browser/device 1:
+- log in
+- create a trip + event
+
+Account A — browser/device 2:
+- log in as the same account
+- after sync (refresh if needed), confirm the trip + event appear
+```
+
+Expected: data created on device 1 appears on device 2 once replication pulls
+(realtime, or on refresh). Some lag is normal (local-first; pull is checkpointed).
+
+## 7. iPhone — Add to Home Screen (PWA)
+
+```text
+iPhone Safari:
+1. Open the deployed production URL.
+2. Tap the Share button.
+3. Tap "Add to Home Screen".
+4. Confirm the name ("Journey Ledger") and icon, then Add.
+5. Open the app from the Home Screen.
+```
+
+Verify:
+
+- [ ] App name shows as **Journey Ledger**.
+- [ ] The app icon appears (neutral Journey Ledger mark from `public/logo.svg`).
+- [ ] Launches in standalone mode (minimal browser chrome) if the manifest is honored.
+- [ ] Reloading / relaunching does not crash; offline baseline still renders.
+- [ ] Login still works when launched from the Home Screen.
+
+> Note: the PWA manifest currently uses a single **SVG** icon. Modern browsers
+> accept this; if iOS home-screen icon fidelity is poor, adding raster 192/512
+> PNG icons is a documented post-release backlog item (not required to ship).
+
+## 8. Known operational notes
 
 - **Quotas are frontend-only** (UX guard). There is no backend enforcement yet — see the design note in [`../supabase/README.md`](../supabase/README.md).
 - First load per user upserts a legacy `nagoya-2026` seed trip so any pre-existing events are not orphaned. This is expected demo/seed data, not active routing.

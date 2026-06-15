@@ -65,7 +65,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 
 ## Phase Status
 
-Current phase: Phase 10 — Archive/Status + Final Hardening
+Current phase: Release Candidate / Manual Deployment
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -136,6 +136,12 @@ Completed:
   - **Geocoding:** already generic/keyless (Open-Meteo + Nominatim, neutral `null` fallback). Only change: genericized the one Nagoya example comment.
   - **Docs:** README gained a "Weather & location" note (event-level real weather, keyless; trip-level forecast deferred).
   - No new pure helpers → no new tests. Build passed; `npm test` 39/39; targeted eslint on TripViewer/geocoding **0 errors / 0 warnings**.
+- **Phase 10 — deployment readiness (docs-only + tiny config).** No app/schema/behavior changes; the MVP is now a release candidate.
+  - **Vercel:** `vercel.json` already had the SPA rewrite; added the `$schema` field for completeness. Framework = Vite, build `npm run build`, output `dist`, env `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` (anon only).
+  - **`docs/DEPLOYMENT.md` expanded:** Supabase **Auth Site URL / Redirect URLs** guidance (production URL must match origin); a **Vercel** setup subsection; a **two-account RLS user-isolation** smoke test; a **same-account multi-device sync** test; **iPhone Add-to-Home-Screen** instructions + verify list; plus the existing bootstrap/RLS/realtime/env/smoke sections.
+  - **Security:** repo-wide scan found **no** `service_role`/secret usage (only the "never ship service_role" warnings in docs). `.env.local` is gitignored; `.env.example` carries only the two `VITE_*` anon vars.
+  - **No schema migration, no archive/status, no backend quota** (all deferred per scope).
+  - Build/lint/test result: build passed; `npm test` 39/39; only `vercel.json` + docs touched (no source files), so eslint is unaffected (0 new issues).
 
 ## Hardcode classification (Phase 9 release audit)
 
@@ -148,11 +154,15 @@ Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` r
 - **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset/weather implies all trips are Nagoya.
 
 In progress:
-- (none — Phase 9 complete)
+- (none — Phase 10 complete; app is a Release Candidate ready for manual deployment + production smoke testing per `docs/DEPLOYMENT.md`).
 
-Next:
-- **Phase 10 — Archive/Status + final hardening:** trip archive/status (needs a deliberate `trips` schema-version migration); backend quota enforcement; legacy lint-debt cleanup; optional cascade soft-delete of a trip's events on delete (behind explicit confirmation).
-- **Post-release backlog / maintenance:** real trip-level (per-day) weather forecast; raster PWA icons if a platform needs them; ongoing dependency/audit upkeep.
+Next — Post-release backlog / maintenance:
+- Trip **archive/status** (deliberate `trips` schema-version migration).
+- **Backend quota enforcement** (trigger / RPC / RLS / edge function) — frontend quotas are UX-only.
+- **Real trip-level (per-day) weather** forecast.
+- **Raster PWA icons** (192/512 PNG) if iOS/Android home-screen fidelity needs them.
+- **Legacy lint-debt cleanup** (remaining `no-explicit-any` / react-hooks in untouched files).
+- Optional **cascade soft-delete** of a trip's events on trip delete (behind explicit confirmation).
 
 ## Architecture Changes (running log)
 
@@ -165,6 +175,7 @@ Next:
 - **Phase 7:** Trip management without schema change — `EditTripModal` (soft `incrementalPatch`), soft-delete from TripLibrary (`is_deleted=true`, events untouched), and `src/lib/selectedTrip.ts` persistence (`journey_ledger_selected_trip_id`). `AppContent` now resolves the persisted selection, excludes deleted trips, and recovers to the library via derived state (no setState-in-effect, no infinite loading). `dateRange.ts` gained `isValidTripDateRange` (used by Create + Edit). Archive deferred (no schema field).
 - **Phase 8:** Release polish only. Single neutral brand asset `public/logo.svg` replaces all Nagoya binaries (favicon, splash, workspace logo, PWA manifest icon); unused image binaries + dead `LandingPage.tsx` deleted. `noise.png` reference removed (build warning gone). Docs finalized: `README.md`, new `docs/DEPLOYMENT.md`, backend-quota design note in `supabase/README.md`. No data-layer, schema, or behavior changes.
 - **Phase 9:** Mock trip weather removed. TripViewer no longer renders trip-level weather (the `WEATHER_FORECAST` Nagoya mock is deleted); the only weather in the app is real, event-coordinate-based Open-Meteo data in `EventDetailView`/`SpotWeather`/`useSpotWeather` (keyless, hidden when no coordinates). Geocoding unchanged (Open-Meteo + Nominatim, keyless). No schema/replication changes.
+- **Phase 10:** No architecture change — deployment readiness only. `vercel.json` SPA rewrite (+`$schema`), expanded `docs/DEPLOYMENT.md` (Vercel + Supabase Auth URLs + two-account RLS isolation test + multi-device sync test + iPhone install). App is a Release Candidate.
 
 ## Known Risks (running log)
 
