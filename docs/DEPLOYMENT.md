@@ -58,7 +58,7 @@ Journey Ledger is a static SPA/PWA — host the build output on any static host
 
 - [ ] App loads; the splash screen clears.
 - [ ] Sign up / sign in works (Supabase Auth).
-- [ ] TripLibrary loads; the legacy "Nagoya 2026" trip appears (first run bootstrap).
+- [ ] TripLibrary loads — a brand-new account shows the empty-state onboarding (no auto-seeded trip); existing accounts show their synced trips.
 - [ ] Create a trip → it appears in the library.
 - [ ] Open a trip → Journal and Planning render for the trip's date range.
 - [ ] Add an event → it shows only in that trip (cross-trip isolation).
@@ -143,4 +143,4 @@ Verify:
 ## 8. Known operational notes
 
 - **Quotas are frontend-only** (UX guard). There is no backend enforcement yet — see the design note in [`../supabase/README.md`](../supabase/README.md).
-- First load per user upserts a legacy `nagoya-2026` seed trip so any pre-existing events are not orphaned. This is expected demo/seed data, not active routing.
+- New accounts are **not** auto-seeded with any trip (Phase 11) — they start with an empty TripLibrary onboarding state. The legacy `nagoya-2026` seed trip is only present for accounts that already had it; it is no longer created on login.

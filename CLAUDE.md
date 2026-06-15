@@ -62,6 +62,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 * **Phase 8:** release polish & deploy readiness (assets, dead code, PWA, README, deploy docs).
 * **Phase 9:** Weather / Location cleanup.
 * **Phase 10:** Archive/Status + final hardening.
+* **Phase 11:** post-RC UX polish (double-submit guards, no Nagoya auto-seed, responsive top-nav, logo, responsive timeline density).
 
 ## Phase Status
 
@@ -142,6 +143,13 @@ Completed:
   - **Security:** repo-wide scan found **no** `service_role`/secret usage (only the "never ship service_role" warnings in docs). `.env.local` is gitignored; `.env.example` carries only the two `VITE_*` anon vars.
   - **No schema migration, no archive/status, no backend quota** (all deferred per scope).
   - Build/lint/test result: build passed; `npm test` 39/39; only `vercel.json` + docs touched (no source files), so eslint is unaffected (0 new issues).
+- **Phase 11 — post-RC UX polish.** Five fixes from manual review; no schema changes; stays a Release Candidate.
+  - **Double-submit guards:** `Auth.tsx` rebranded ("Journey Ledger"), now uses a `pending: 'login'|'signup'|null` state with hard `if (busy) return` guards, disabled buttons + "Signing up…/Logging in…" text, and graceful "already registered" handling (Supabase returns a user with empty `identities`). `EventModal` submit button now `disabled={form.formState.isSubmitting}`. `ImportModal` commit guarded by `isImporting` + disabled buttons. (CreateTrip/EditTrip/Delete already guarded in Phase 7.)
+  - **No Nagoya auto-seed:** `App.tsx` no longer calls `ensureLegacyTrip()` on login. New users start with an empty TripLibrary; existing users keep their trips via Supabase replication (no data deleted/rewritten). The helper remains in `src/db/trips.ts` for manual/dev migration only.
+  - **Responsive top-nav:** `ResponsiveLayout` header is now `overflow-x-auto` (hidden scrollbar); `TripWorkspace` nav groups got `shrink-0` so controls scroll horizontally on mobile instead of clipping/squeezing. Desktop layout unchanged.
+  - **Logo:** `public/logo.svg` redesigned to a bolder filled gold pin + ledger baseline on wine (legible at favicon size; no castle/copyright). All refs already point to `/logo.svg`.
+  - **Responsive timeline density:** new `src/hooks/useTimelineScale.ts` (`useSyncExternalStore` on matchMedia) is the single source of truth for pixels-per-minute — desktop 2.0 (120px/hr, unchanged), tablet 1.0 (60px/hr), mobile 0.8 (48px/hr); 5-min steps stay integer px. Threaded through `TimelineView` (grid height, hour axis, event positioning, drag deltas, snap modifier), `DayColumn` (`hourHeight` prop), and `TimelineEvent` (`ppm` prop for resize math). Event card padding/title font compacted on mobile. Drag/drop, resize, and floating/backlog preserved.
+  - Build/lint/test result: build passed; `npm test` 39/39; touched files introduce **no new** lint issues (the only flags — EventModal `setOpen` warning + TimelineEvent `Date.now()` purity at 151:33 — are pre-existing legacy debt present since the Phase 0 baseline).
 
 ## Hardcode classification (Phase 9 release audit)
 
@@ -176,6 +184,7 @@ Next — Post-release backlog / maintenance:
 - **Phase 8:** Release polish only. Single neutral brand asset `public/logo.svg` replaces all Nagoya binaries (favicon, splash, workspace logo, PWA manifest icon); unused image binaries + dead `LandingPage.tsx` deleted. `noise.png` reference removed (build warning gone). Docs finalized: `README.md`, new `docs/DEPLOYMENT.md`, backend-quota design note in `supabase/README.md`. No data-layer, schema, or behavior changes.
 - **Phase 9:** Mock trip weather removed. TripViewer no longer renders trip-level weather (the `WEATHER_FORECAST` Nagoya mock is deleted); the only weather in the app is real, event-coordinate-based Open-Meteo data in `EventDetailView`/`SpotWeather`/`useSpotWeather` (keyless, hidden when no coordinates). Geocoding unchanged (Open-Meteo + Nominatim, keyless). No schema/replication changes.
 - **Phase 10:** No architecture change — deployment readiness only. `vercel.json` SPA rewrite (+`$schema`), expanded `docs/DEPLOYMENT.md` (Vercel + Supabase Auth URLs + two-account RLS isolation test + multi-device sync test + iPhone install). App is a Release Candidate.
+- **Phase 11:** UX polish. **Auto-seed removed** — `App.tsx` no longer calls `ensureLegacyTrip()`; new users get an empty library (existing trips persist via replication). New responsive timeline-density layer: `useTimelineScale()` hook is the single source of truth for pixels-per-minute, threaded through TimelineView/DayColumn/TimelineEvent (desktop unchanged, tablet/mobile compacted). Auth/EventModal/ImportModal gained double-submit guards. Top-nav row is horizontally scrollable on mobile. No schema/replication changes; Phase 4 isolation + Phase 7 edit/delete/persistence intact.
 
 ## Known Risks (running log)
 

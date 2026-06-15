@@ -39,7 +39,7 @@ export function ResponsiveLayout({ children, bottomNav, topNav, className }: Res
 
                 {/* Top Nav (Visible on Mobile & Desktop now) */}
                 {/* v0.10.4 Fix: Removed 'hidden md:flex' to show header on mobile */}
-                <div className="flex sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-white/20 px-4 py-3 md:px-6 md:py-4 md:rounded-t-xl justify-between items-center transition-all">
+                <div className="flex sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-white/20 px-4 py-3 md:px-6 md:py-4 md:rounded-t-xl justify-between items-center gap-2 transition-all overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {topNav}
                 </div>
 

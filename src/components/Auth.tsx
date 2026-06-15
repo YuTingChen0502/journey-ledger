@@ -8,10 +8,14 @@ import { Label } from '@/components/ui/label'
 import { removeRxDatabase } from 'rxdb';
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie';
 
+type PendingAction = 'login' | 'signup' | null
+
 export function Auth() {
-    const [loading, setLoading] = useState(false)
+    const [pending, setPending] = useState<PendingAction>(null)
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+
+    const busy = pending !== null
 
     // Clean Room Protocol:
     // Wipes the local database to ensure no Ghost Data persists from previous "guest" sessions
@@ -29,51 +33,59 @@ export function Auth() {
         }
     };
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleLogin = async (e: React.MouseEvent | React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
+        if (busy) return // guard against double-submit
+        setPending('login')
+        try {
+            // 1. Authenticate with Supabase first
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
 
-        // 1. Authenticate with Supabase first
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
-
-        if (error) {
-            alert(error.message)
-        } else {
-            // 2. SUCCESS! Before the AuthContext sees the session (or before we redirect), 
-            // WE NUKE THE LOCAL DB.
-            // Note: AuthContext subscription fires almost instantly. 
-            // However, wiping NOW ensures that when the App mounts (which happens after session is set),
-            // it starts with a fresh empty DB.
-            await cleanRoom();
+            if (error) {
+                alert(error.message)
+            } else {
+                // 2. SUCCESS! Wipe the local DB now so the app mounts with a fresh
+                // empty DB and replication repopulates only this user's data.
+                await cleanRoom();
+            }
+        } finally {
+            setPending(null)
         }
-        setLoading(false)
     }
 
-    const handleSignUp = async (e: React.FormEvent) => {
+    const handleSignUp = async (e: React.MouseEvent | React.FormEvent) => {
         e.preventDefault()
-        setLoading(true)
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-        })
+        if (busy) return // guard against double-submit / repeated signup
+        setPending('signup')
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+            })
 
-        if (error) {
-            alert(error.message)
-        } else {
-            alert('Check your email for the login link!')
+            if (error) {
+                alert(error.message)
+            } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+                // Supabase returns a user with no identities when the email is
+                // already registered (to avoid leaking which emails exist).
+                alert('This email is already registered. Please log in instead.')
+            } else {
+                alert('Check your email for the confirmation link!')
+            }
+        } finally {
+            setPending(null)
         }
-        setLoading(false)
     }
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <Card className="w-[350px]">
                 <CardHeader>
-                    <CardTitle>Trip Database</CardTitle>
-                    <CardDescription>Login or create an account</CardDescription>
+                    <CardTitle>Journey Ledger</CardTitle>
+                    <CardDescription>Log in or create an account</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form className="grid w-full items-center gap-4">
@@ -88,8 +100,12 @@ export function Auth() {
                     </form>
                 </CardContent>
                 <CardFooter className="flex justify-between">
-                    <Button variant="outline" onClick={handleSignUp} disabled={loading}>Sign Up</Button>
-                    <Button onClick={handleLogin} disabled={loading}>Login</Button>
+                    <Button type="button" variant="outline" onClick={handleSignUp} disabled={busy}>
+                        {pending === 'signup' ? 'Signing up…' : 'Sign Up'}
+                    </Button>
+                    <Button type="submit" onClick={handleLogin} disabled={busy}>
+                        {pending === 'login' ? 'Logging in…' : 'Login'}
+                    </Button>
                 </CardFooter>
             </Card>
         </div>

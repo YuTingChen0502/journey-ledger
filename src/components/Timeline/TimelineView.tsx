@@ -22,6 +22,7 @@ import { format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
 import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
 import { buildTripDays } from '@/lib/dateRange';
 import { tripEventsSelector } from '@/lib/tripScoping';
+import { useTimelineScale } from '@/hooks/useTimelineScale';
 import { Button } from '@/components/ui/button';
 // ScrollArea removed
 import { ChevronRight, ChevronLeft } from 'lucide-react';
@@ -35,18 +36,9 @@ interface TimelineViewProps {
     onEventClick: (id: string) => void;
 }
 
-const PPM = 2; // Pixels per minute
 const START_HOUR = 6; // 06:00 AM
 const DAY_START_MINUTES = START_HOUR * 60;
-
-// Snap Modifier: 5 minutes = 10px
-const snapToGridModifier: Modifier = ({ transform }) => {
-    return {
-        ...transform,
-        y: Math.round(transform.y / 10) * 10,
-        x: Math.round(transform.x / 1),
-    };
-};
+const HOURS_IN_DAY = 18; // 06:00 → 23:00
 
 // Sub-component for Backlog Droppable
 function BacklogArea({ children }: { children: React.ReactNode }) {
@@ -65,6 +57,17 @@ function BacklogArea({ children }: { children: React.ReactNode }) {
 export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
     const { t, language } = useTranslation();
     const dateLocale = language === 'zh-TW' ? zhTW : enUS;
+
+    // Responsive density: desktop unchanged, tablet/mobile compacted.
+    const { ppm, hourHeight, snapPx } = useTimelineScale();
+    const gridHeight = hourHeight * HOURS_IN_DAY;
+
+    // Snap drag movement to the 5-minute pixel step for the active density.
+    const snapToGridModifier: Modifier = useMemo(() => ({ transform }) => ({
+        ...transform,
+        y: Math.round(transform.y / snapPx) * snapPx,
+        x: Math.round(transform.x / 1),
+    }), [snapPx]);
 
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const { result: events } = useRxData<TripEventDocType>(
@@ -148,8 +151,8 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                     // We need to calculate based on Original Time + Delta
                     const currentMinutes = (start.getHours() * 60) + start.getMinutes();
 
-                    // Apply Delta (rounded to 5 mins / 10px)
-                    const deltaMinutes = Math.round((delta.y / PPM) / 5) * 5;
+                    // Apply Delta (rounded to 5 mins)
+                    const deltaMinutes = Math.round((delta.y / ppm) / 5) * 5;
 
                     let newMinutes = currentMinutes + deltaMinutes;
 
@@ -196,7 +199,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
             }
 
             // Delta in minutes
-            const deltaMinutes = Math.round((delta.y / PPM) / 5) * 5;
+            const deltaMinutes = Math.round((delta.y / ppm) / 5) * 5;
             let newMinutes = currentMinutes + deltaMinutes;
 
             // Round Result to 5 minutes (Absolute Snap)
@@ -259,8 +262,8 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                         {/* Corner Header Block to match Date Rows */}
                         <div className="h-8 border-b bg-white/30 w-full" />
                         <div className="relative w-full h-full">
-                            {Array.from({ length: 18 }, (_, i) => i + 6).map(h => (
-                                <div key={h} className="absolute w-full text-right pr-2 text-xs text-muted-foreground" style={{ top: `${(h - 6) * 120}px` }}>
+                            {Array.from({ length: HOURS_IN_DAY }, (_, i) => i + START_HOUR).map(h => (
+                                <div key={h} className="absolute w-full text-right pr-2 text-xs text-muted-foreground" style={{ top: `${(h - START_HOUR) * hourHeight}px` }}>
                                     {`${h}:00`}
                                 </div>
                             ))}
@@ -279,7 +282,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                             WebkitOverflowScrolling: 'touch',
                         }}
                     >
-                        <div className="flex h-[2160px] pb-32"> {/* v0.10.7 Fix: Added pb-32 for mobile bottom safety */}
+                        <div className="flex pb-32" style={{ height: `${gridHeight}px` }}> {/* responsive height; pb-32 for mobile bottom safety */}
                             {days.map(day => {
                                 const dateKey = format(day, 'yyyy-MM-dd');
                                 const dayList = dayEvents.get(dateKey) || [];
@@ -291,7 +294,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                                             {format(day, 'EEE d', { locale: dateLocale })}
                                         </div>
                                         {/* Column */}
-                                        <DayColumn date={day}>
+                                        <DayColumn date={day} hourHeight={hourHeight}>
                                             {dayList.map(event => {
                                                 const start = safeParseISO(event.start_time);
                                                 // Explicit Date Matching Check
@@ -300,17 +303,17 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                                                 }
 
                                                 let top = 0;
-                                                let height = 60 * PPM; // Default 1 hour
+                                                let height = 60 * ppm; // Default 1 hour
 
                                                 if (start) {
                                                     const minutes = (start.getHours() * 60) + start.getMinutes();
-                                                    top = (minutes - DAY_START_MINUTES) * PPM;
+                                                    top = (minutes - DAY_START_MINUTES) * ppm;
 
                                                     if (event.end_time) {
                                                         const end = safeParseISO(event.end_time);
                                                         if (end) {
                                                             const duration = differenceInMinutes(end, start);
-                                                            height = Math.max(30, duration) * PPM;
+                                                            height = Math.max(30, duration) * ppm;
                                                         }
                                                     }
                                                 }
@@ -319,6 +322,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                                                     <TimelineEvent
                                                         key={event.id}
                                                         event={event}
+                                                        ppm={ppm}
                                                         style={{
                                                             top: `${top}px`,
                                                             height: `${height}px`
@@ -350,6 +354,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                                 <div key={event.id} className="relative mb-2 h-24">
                                     <TimelineEvent
                                         event={event}
+                                        ppm={ppm}
                                         className="static h-full w-full"
                                         style={{ transform: 'none' }}
                                         onClick={() => {
@@ -379,6 +384,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                     {activeItem ? (
                         <TimelineEvent
                             event={activeItem}
+                            ppm={ppm}
                             isOverlay={true}
                             previewTime={previewTime}
                             style={{
@@ -386,7 +392,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                                     activeItem.start_time && activeItem.end_time
                                         ? differenceInMinutes(safeParseISO(activeItem.end_time)!, safeParseISO(activeItem.start_time)!)
                                         : 60
-                                ) * PPM}px`
+                                ) * ppm}px`
                             }}
                         />
                     ) : null}

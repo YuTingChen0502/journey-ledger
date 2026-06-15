@@ -223,7 +223,7 @@ export function EventModal({ userId, tripId, eventId, isOpen: externalIsOpen, on
                                     )}
                                 />
                             </div>
-                            <Button type="submit">{isEditMode ? t('modal.btn.save') : t('modal.btn.create')}</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>{isEditMode ? t('modal.btn.save') : t('modal.btn.create')}</Button>
                         </form>
                     </Form>
                 )}

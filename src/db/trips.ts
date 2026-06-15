@@ -6,11 +6,12 @@ import type { TripDocType } from './tripSchema';
 export const LEGACY_TRIP_ID = 'nagoya-2026';
 
 // Create/upsert the legacy "Nagoya 2026" trip so existing events that point to
-// `trip_id = 'nagoya-2026'` are not orphaned now that trips are first-class.
+// `trip_id = 'nagoya-2026'` are not orphaned.
 //
-// If the trip already exists locally it is left untouched (we must not clobber
-// any edits the user — or sync — may have made). Only the `owner_id` is stamped
-// from the current authenticated user on first creation.
+// Phase 11: this is NO LONGER called automatically on login — new users must
+// not be auto-seeded with Nagoya. It is retained for manual/dev migration only
+// (existing users keep their Nagoya trip via Supabase replication). If the trip
+// already exists locally it is left untouched.
 export async function ensureLegacyTrip(
     trips: RxCollection<TripDocType>,
     ownerId: string

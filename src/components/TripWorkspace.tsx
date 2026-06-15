@@ -59,7 +59,7 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
         <>
             {/* Logo + app title → All Trips (TripLibrary). */}
             <div
-                className="flex items-center gap-3 cursor-pointer group"
+                className="flex items-center gap-3 cursor-pointer group shrink-0"
                 onClick={onBackToTrips}
                 title={t('nav.all_trips')}
             >
@@ -73,14 +73,14 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
             <Button
                 variant="ghost"
                 size="sm"
-                className="gap-1 text-muted-foreground hover:text-foreground ml-1"
+                className="gap-1 text-muted-foreground hover:text-foreground ml-1 shrink-0"
                 onClick={() => setMode('dashboard')}
             >
                 <ChevronLeft className="h-4 w-4" /> {t('nav.back')}
             </Button>
 
             {mode === 'planning' && (
-                <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg ml-4">
+                <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg ml-4 shrink-0">
                     <Button
                         variant="ghost"
                         size="sm"
@@ -100,7 +100,7 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
                 </div>
             )}
 
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2 ml-auto shrink-0">
                 {mode === 'planning' && (
                     <Button
                         size="sm"

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import type { RxDatabase } from 'rxdb'
 import { initDB } from './db'
-import { ensureLegacyTrip } from './db/trips'
 import { Auth } from './components/Auth'
 import { Toaster } from "@/components/ui/sonner"
 import { LoadingSkeleton } from './components/LoadingSkeleton'
@@ -30,14 +29,12 @@ function AppShell() {
   // The singleton in initDB makes this safe to call repeatedly.
   useEffect(() => {
     if (session?.user?.id) {
-      const ownerId = session.user.id;
       initDB().then((database) => {
         setDb(database);
-        // Phase 1: ensure the legacy Nagoya 2026 trip exists so existing
-        // events (trip_id = 'nagoya-2026') are not orphaned. Non-blocking.
-        ensureLegacyTrip(database.trips, ownerId).catch(err => {
-          console.error('Legacy trip init failed', err);
-        });
+        // Phase 11: no auto-seeding. New users start with an empty TripLibrary;
+        // existing users keep their trips via Supabase replication. The legacy
+        // `ensureLegacyTrip` helper remains in src/db/trips.ts for manual/dev
+        // migration only — it is intentionally NOT called here.
       }).catch(err => {
         console.error('DB Init Failed', err);
       });

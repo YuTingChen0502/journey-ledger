@@ -19,11 +19,10 @@ interface TimelineEventProps {
     isOverlay?: boolean;
     previewTime?: string | null;
     onClick?: () => void;
+    ppm?: number; // pixels per minute (responsive density); defaults to desktop
 }
 
-const PPM = 2; // Share this constant or prop it
-
-export function TimelineEvent({ event, style, className, isOverlay, previewTime, onClick }: TimelineEventProps) {
+export function TimelineEvent({ event, style, className, isOverlay, previewTime, onClick, ppm = 2 }: TimelineEventProps) {
     const collection = useRxCollection<TripEventDocType>('tripevents');
     const [isResizing, setIsResizing] = useState(false);
     const [resizeHeight, setResizeHeight] = useState<number | null>(null);
@@ -92,7 +91,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
         if (event.start_time) {
             const start = safeParseISO(event.start_time);
             if (start) {
-                const durationMins = initialHeight / PPM;
+                const durationMins = initialHeight / ppm;
                 const end = addMinutes(start, durationMins);
                 setResizePreviewLabel(`End: ${safeFormatTime(end.toISOString())}`);
             }
@@ -109,9 +108,10 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
         const deltaY = e.clientY - startY;
         const rawNewHeight = initialHeight + deltaY;
 
-        // Snap to 5m (10px)
-        const snapped = Math.round(rawNewHeight / 10) * 10;
-        const safeHeight = Math.max(30, snapped); // Min 15m (30px)
+        // Snap to 5-minute step for the active density
+        const snapStep = ppm * 5;
+        const snapped = Math.round(rawNewHeight / snapStep) * snapStep;
+        const safeHeight = Math.max(ppm * 15, snapped); // Min 15 minutes
 
         resizingState.current.currentHeight = safeHeight;
         setResizeHeight(safeHeight);
@@ -120,7 +120,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
         if (event.start_time) {
             const start = safeParseISO(event.start_time);
             if (start) {
-                const durationMins = safeHeight / PPM;
+                const durationMins = safeHeight / ppm;
                 const end = addMinutes(start, durationMins);
                 setResizePreviewLabel(`End: ${safeFormatTime(end.toISOString())}`);
             }
@@ -140,7 +140,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
 
         // Commit if changed
         if (currentHeight !== initialHeight) {
-            const durationMinutes = currentHeight / PPM;
+            const durationMinutes = currentHeight / ppm;
             const start = safeParseISO(event.start_time);
 
             if (start) {
@@ -200,7 +200,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                 (isDragging || isOverlay) ? "shadow-xl ring-2 ring-primary" : "shadow-sm hover:shadow-lg cursor-pointer",
                 "border-l-4 border-l-primary" // Removed bg-card to let glass effect work
             )}>
-                <CardContent className="p-2 flex flex-col h-full gap-1">
+                <CardContent className="p-1.5 sm:p-2 flex flex-col h-full gap-1">
                     <div className="flex items-start justify-between gap-1">
                         {/* Drag Handle - Only active if NOT resizing */}
                         <div
@@ -211,7 +211,7 @@ export function TimelineEvent({ event, style, className, isOverlay, previewTime,
                         >
                             <GripVertical className="h-3 w-3" />
                         </div>
-                        <div className="flex-1 min-w-0 font-extrabold text-[1.1rem] leading-[1.2] whitespace-normal mb-1">
+                        <div className="flex-1 min-w-0 font-extrabold text-[0.95rem] sm:text-[1.1rem] leading-[1.2] whitespace-normal mb-1">
                             {event.title}
                         </div>
                         {!isDragging && !isOverlay && (

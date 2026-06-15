@@ -40,6 +40,7 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
     const [rawText, setRawText] = useState('');
     const [candidates, setCandidates] = useState<ImportCandidate[]>([]);
     const [targetDate, setTargetDate] = useState<Date | undefined>(defaultDate);
+    const [isImporting, setIsImporting] = useState(false);
 
     // RxDB Collection
     const collection = useRxCollection<TripEventDocType>('tripevents');
@@ -74,6 +75,7 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
     };
 
     const handleCommit = async (mode: 'SCHEDULE' | 'BACKLOG') => {
+        if (isImporting) return; // guard against double-submit
         console.log("Starting Import Commit (RxDB Local-First)...", { mode, candidatesCount: candidates.length });
         const selected = candidates.filter(c => c.isSelected);
 
@@ -153,6 +155,7 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
         console.log("Prepared Events for RxDB Insert:", JSON.stringify(eventsToInsert, null, 2));
 
         if (eventsToInsert.length > 0 && collection) {
+            setIsImporting(true);
             try {
                 // Bulk Insert to RxDB
                 await collection.bulkInsert(eventsToInsert);
@@ -173,6 +176,8 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
                 console.error("RxDB Insert Error:", err);
                 const message = err instanceof Error ? err.message : 'Unknown Db Error';
                 toast.error(`Import failed: ${message}`);
+            } finally {
+                setIsImporting(false);
             }
         } else if (!collection) {
             console.error("RxDB Collection not found");
@@ -277,10 +282,10 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
                         </div>
 
                         <div className="flex justify-end gap-2 pt-2 border-t">
-                            <Button variant="secondary" onClick={() => handleCommit('BACKLOG')}>
+                            <Button variant="secondary" onClick={() => handleCommit('BACKLOG')} disabled={isImporting}>
                                 {t('import.btn.backlog')}
                             </Button>
-                            <Button onClick={() => handleCommit('SCHEDULE')} disabled={!targetDate}>
+                            <Button onClick={() => handleCommit('SCHEDULE')} disabled={!targetDate || isImporting}>
                                 {t('import.btn.schedule')}
                             </Button>
                         </div>
