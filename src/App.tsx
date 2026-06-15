@@ -12,6 +12,7 @@ import { TimelineView } from './components/Timeline/TimelineView'
 import { ResponsiveLayout } from './components/Layout/ResponsiveLayout'
 import { ImportModal } from './components/ImportModal'
 import { EventModal } from './components/EventModal'
+import { TripLibrary } from './components/Trips/TripLibrary'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Provider } from 'rxdb-hooks'
 import { Plus, LogOut, Home, BookOpen, Map } from 'lucide-react'
@@ -84,6 +85,9 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   const { session } = useAuth()
   const { t } = useTranslation()
 
+  // Phase 2: trip selection gate. Until a trip is selected, show TripLibrary.
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
+
   // App State
   const [mode, setMode] = useState<'dashboard' | 'overview' | 'planning'>('dashboard')
   const [planningView, setPlanningView] = useState<'timeline' | 'table'>('timeline')
@@ -108,6 +112,15 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   const handleEventClick = (id: string) => {
     setSelectedEventId(id)
     setDetailViewOpen(true)
+  }
+
+  const handleSelectTrip = (tripId: string) => {
+    setSelectedTripId(tripId)
+    setMode('dashboard') // land on the trip's home view
+  }
+
+  const handleExitToLibrary = () => {
+    setSelectedTripId(null)
   }
 
   // Navigation Components
@@ -204,6 +217,18 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
     </div>
   )
 
+  // Phase 2: gate the existing single-trip workspace behind trip selection.
+  // NOTE: the workspace below still uses legacy runtime assumptions
+  // (TRIP_ID = 'nagoya-2026'); de-scoping is Phase 3/4 work.
+  if (!selectedTripId) {
+    return (
+      <>
+        <Toaster />
+        <TripLibrary onSelectTrip={handleSelectTrip} signOut={signOut} />
+      </>
+    )
+  }
+
   return (
     <>
       <Toaster />
@@ -214,7 +239,7 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
       >
         <div className={`h-full w-full overflow-hidden relative p-0 m-0 ${mode !== 'dashboard' ? 'bg-card' : ''}`}>
           <ErrorBoundary>
-            {mode === 'dashboard' && <TripDashboard onNavigate={(view) => {
+            {mode === 'dashboard' && <TripDashboard onBack={handleExitToLibrary} onNavigate={(view) => {
               if (view === 'planner') {
                 setPlanningView('timeline')
                 setMode('planning')
