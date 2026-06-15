@@ -24,6 +24,7 @@ import { Plus } from 'lucide-react'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import type { TripDocType } from '@/db/tripSchema'
+import { canCreateTrip, QUOTAS } from '@/lib/quotas'
 
 type CreateTripFormData = {
     title: string
@@ -70,6 +71,15 @@ export function CreateTripModal({ ownerId, onCreated }: CreateTripModalProps) {
         }
         setIsSaving(true)
         try {
+            // Quota guard (UX only): count this user's non-deleted trips.
+            const existingTrips = await collection.find({
+                selector: { owner_id: { $eq: ownerId }, is_deleted: { $eq: false } },
+            }).exec()
+            if (!canCreateTrip(existingTrips.length)) {
+                toast.error(`You've reached the maximum of ${QUOTAS.maxTripsPerUser} trips.`)
+                return
+            }
+
             const now = Date.now()
             const id = uuidv4()
             const trip: TripDocType = {

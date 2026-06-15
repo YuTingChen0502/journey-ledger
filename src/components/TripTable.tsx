@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label'
 
 import { ArrowUpDown, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { safeFormatTime } from '@/lib/dateUtils'
+import { tripEventsSelector } from '@/lib/tripScoping'
 import { toast } from 'sonner' // Assuming sonner is available (used in ImportModal)
 import { useTranslation } from '@/hooks/useTranslation'
 
@@ -47,10 +48,7 @@ export function TripTable({ tripId, onEdit }: { tripId: string; onEdit?: (id: st
     const { result: data, isFetching } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
-            selector: {
-                trip_id: { $eq: tripId },
-                is_deleted: { $eq: false },
-            },
+            selector: tripEventsSelector(tripId),
             sort: [{ updated_at: 'desc' }]
         })
     )
@@ -84,7 +82,7 @@ export function TripTable({ tripId, onEdit }: { tripId: string; onEdit?: (id: st
 
             setDeleteDialogOpen(false);
             setDeleteConfirmText('');
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Batch Delete Error", err);
             toast.error("Failed to delete events.");
         } finally {

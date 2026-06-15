@@ -61,7 +61,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 
 ## Phase Status
 
-Current phase: Phase 6 — quota, tests, RLS documentation, and release cleanup
+Current phase: Post-Phase-6 backlog / maintenance
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -104,12 +104,33 @@ Completed:
   - **TripLibrary:** added a product tagline + clearer "All Trips" label and a more explanatory empty state.
   - **Settings keys:** `SettingsContext.tsx` — renamed to `journey_ledger_lang` / `journey_ledger_font_scale`; reads legacy `nagoya_*` keys once as a fallback (no preference loss); all writes go to the new keys.
   - Build/lint/test result: build passed; touched files introduce no new lint errors (pre-existing EventDetailView `any`/access-order/deps and the SettingsContext `react-refresh` warning remain as legacy debt, line-shifted only); no test script.
+- **Phase 6 — quotas, tests, RLS docs, release cleanup.** Stabilized the app for real use without UI/schema changes.
+  - **Quotas:** new `src/lib/quotas.ts` — `QUOTAS` (maxTripsPerUser 10, maxEventsPerTrip 500, maxChecklistItemsPerEvent 50, maxMemoLength 5000) + pure helpers (`canCreateTrip`, `canAddEvents`, `canAddChecklistItem`, `isMemoWithinLimit`, `getRemainingEventCapacity`). **Frontend UX guard only — NOT a security boundary** (backend enforcement deferred). Enforced in CreateTripModal (count non-deleted owned trips), EventModal create path (count non-deleted events for `trip_id`), ImportModal (blocks the WHOLE batch if it would exceed remaining capacity — no partial import), EventDetailView (checklist add guard + memo `maxLength` + blur guard). Edit paths unaffected.
+  - **Extracted helpers (DRY + testable):** `src/lib/dateRange.ts` (`buildTripDays`, `MAX_TRIP_DAYS=60`; was duplicated in TripViewer/TimelineView) and `src/lib/tripScoping.ts` (`tripEventsSelector(tripId)` — canonical `{trip_id, is_deleted:false}` selector now used by TripViewer/TimelineView/TripTable). Identical query output → Phase 4 isolation unchanged.
+  - **Tests:** added `"test": "vitest run"`. New suites `quotas.test.ts` (15), `dateRange.test.ts` (7), `tripScoping.test.ts` (4) + existing `dateUtils.test.ts` (4) = **30 passing**. Covers quota below/at/above limits, import-batch-exceeds-capacity rejection, date ranges (1-day/multi-day/inverted/invalid/cap), and trip-scoped selector correctness.
+  - **Docs:** `supabase/README.md` expanded — required tables/columns, RLS expectations (own-row select/insert/update, no hard delete, soft-delete via `deleted=true`), realtime publication, anon-key-only / never-ship-`service_role`, post-setup verification steps.
+  - Build/lint/test result: build passed; `npm test` 30/30 pass; no new lint errors in touched files (pre-existing `any` in ImportModal/TripTable catch blocks + EventModal `setOpen` warning remain as legacy debt; new lib + test files clean).
+
+## Hardcode classification (Phase 6 release audit)
+
+Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` references:
+- **Allowed legacy seed/demo data:** `src/db/trips.ts` (`LEGACY_TRIP_ID` + seeded "Nagoya 2026" trip + its dates). Adopt-existing-events data, not active routing.
+- **Allowed comments:** `src/App.tsx` (bootstrap comment), `src/lib/parser.ts` (date-header regex example), `src/services/geocoding.ts` (example string).
+- **Deferred (harmless):** `src/components/TripViewer/TripViewer.tsx` mock `WEATHER_FORECAST` keyed to 2026 dates — hidden for non-legacy trips; not real weather.
+- **Dead code (deferred cleanup):** `src/components/Home/LandingPage.tsx` shows "Nagoya 2026" but is NOT rendered anywhere — safe to delete later.
+- **Deferred assets:** Nagoya-themed `public/` images (`home_icon.jpg`, `splash-cover.jpg`, `castle_logo.jpg`, `pwa-icon.png`).
+- **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no product copy implies all trips are Nagoya.
 
 In progress:
-- Phase 6 — quota, tests, RLS documentation, and release cleanup
+- (none — Phase 6 complete)
 
-Next:
-- Post-Phase 6 backlog / maintenance (incl. the deferred trip edit/delete/archive phase)
+Next (Post-Phase-6 backlog / maintenance — recommended small phases):
+1. Trip edit / delete / archive (+ graceful recovery when a selected trip is missing).
+2. Selected-trip persistence across reloads (e.g. `localStorage`).
+3. Public asset refresh (de-Nagoya logo/splash) + delete dead `LandingPage.tsx`.
+4. Backend quota enforcement (per-user trips / per-trip events) — frontend quotas are UX-only.
+5. Legacy lint-debt cleanup (remaining `no-explicit-any` / react-hooks items in untouched legacy files).
+6. Real per-trip weather (replace mock `WEATHER_FORECAST`).
 
 ## Architecture Changes (running log)
 

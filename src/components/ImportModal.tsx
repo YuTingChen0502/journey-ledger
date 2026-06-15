@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { useRxCollection } from 'rxdb-hooks';
 import type { TripEventDocType } from '@/db/schema';
 import { useTranslation } from '@/hooks/useTranslation';
+import { canAddEvents, getRemainingEventCapacity, QUOTAS } from '@/lib/quotas';
 
 
 import { useAuth } from '@/context/AuthContext';
@@ -78,6 +79,18 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
 
         if (selected.length === 0) {
             toast.error("No items selected for import");
+            return;
+        }
+
+        // Quota guard (UX only): block the WHOLE batch if it would exceed the
+        // per-trip event cap. No partial import.
+        const existingEvents = await collection?.find({
+            selector: { trip_id: { $eq: tripId }, is_deleted: { $eq: false } }
+        }).exec();
+        const currentCount = existingEvents?.length ?? 0;
+        if (!canAddEvents(currentCount, selected.length)) {
+            const remaining = getRemainingEventCapacity(currentCount);
+            toast.error(`Import blocked: ${remaining} of ${QUOTAS.maxEventsPerTrip} event slots left in this trip, but ${selected.length} selected.`);
             return;
         }
 
@@ -156,9 +169,10 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
                 if (onImportSuccess) {
                     onImportSuccess();
                 }
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("RxDB Insert Error:", err);
-                toast.error(`Import failed: ${err.message || 'Unknown Db Error'}`);
+                const message = err instanceof Error ? err.message : 'Unknown Db Error';
+                toast.error(`Import failed: ${message}`);
             }
         } else if (!collection) {
             console.error("RxDB Collection not found");

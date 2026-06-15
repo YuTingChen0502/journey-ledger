@@ -24,6 +24,7 @@ import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import type { TripEventDocType } from '@/db/schema'
 import { useTranslation } from '@/hooks/useTranslation'
+import { canAddEvents, QUOTAS } from '@/lib/quotas'
 
 
 type FormData = {
@@ -119,7 +120,14 @@ export function EventModal({ userId, tripId, eventId, isOpen: externalIsOpen, on
                     toast.success("Event updated");
                 }
             } else {
-                // CREATE
+                // CREATE — quota guard (UX only): cap non-deleted events per trip.
+                const existingEvents = await collection?.find({
+                    selector: { trip_id: { $eq: tripId }, is_deleted: { $eq: false } }
+                }).exec()
+                if (existingEvents && !canAddEvents(existingEvents.length, 1)) {
+                    toast.error(`This trip has reached the maximum of ${QUOTAS.maxEventsPerTrip} events.`)
+                    return
+                }
                 await collection?.insert({
                     id: uuidv4(),
                     trip_id: tripId,

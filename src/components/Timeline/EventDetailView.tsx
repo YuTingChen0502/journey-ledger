@@ -20,6 +20,8 @@ import { safeParseISO } from '@/lib/dateUtils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SpotWeather } from '@/components/Weather/SpotWeather';
 import { searchLocation } from '@/services/geocoding';
+import { toast } from 'sonner';
+import { canAddChecklistItem, isMemoWithinLimit, QUOTAS } from '@/lib/quotas';
 
 interface EventDetailViewProps {
     eventId: string | null;
@@ -152,7 +154,13 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
         }
     };
 
-    const handleBlurMemo = () => updateField({ memo });
+    const handleBlurMemo = () => {
+        if (!isMemoWithinLimit(memo)) {
+            toast.error(`Memo is too long (max ${QUOTAS.maxMemoLength} characters).`);
+            return;
+        }
+        updateField({ memo });
+    };
 
     const handleTodoChange = (id: string, text: string) => {
         const newTodos = todos.map(t => t.id === id ? { ...t, text } : t);
@@ -172,6 +180,10 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
     };
 
     const handleAddTodo = () => {
+        if (!canAddChecklistItem(todos.length)) {
+            toast.error(`Checklist limit reached (max ${QUOTAS.maxChecklistItemsPerEvent} items).`);
+            return;
+        }
         const newTodos = [...todos, { id: crypto.randomUUID(), text: '', is_checked: false }];
         setTodos(newTodos);
         // Don't save yet, wait for blur
@@ -387,6 +399,7 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                                 className="bg-muted/10 border-border/40 min-h-[100px] resize-none focus-visible:ring-0 focus-visible:border-primary"
                                 placeholder={t('detail.memo.placeholder') || "Write notes here..."}
                                 value={memo}
+                                maxLength={QUOTAS.maxMemoLength}
                                 onChange={(e) => setMemo(e.target.value)}
                                 onBlur={handleBlurMemo}
                             />

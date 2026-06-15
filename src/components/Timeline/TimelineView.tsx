@@ -18,8 +18,10 @@ import {
 import { DayColumn } from './DayColumn';
 import { TimelineEvent } from './TimelineEvent';
 // EventDetailView removed (hoisted)
-import { addDays, format, parseISO, differenceInMinutes, differenceInDays, addMinutes, isValid } from 'date-fns';
+import { format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
 import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
+import { buildTripDays } from '@/lib/dateRange';
+import { tripEventsSelector } from '@/lib/tripScoping';
 import { Button } from '@/components/ui/button';
 // ScrollArea removed
 import { ChevronRight, ChevronLeft } from 'lucide-react';
@@ -32,17 +34,6 @@ interface TimelineViewProps {
     trip: TripDocType;
     onEventClick: (id: string) => void;
 }
-
-// Build the inclusive list of days for a trip from its start/end dates.
-// Defensive against invalid or inverted ranges; capped to keep the UI sane.
-const buildTripDays = (startStr: string, endStr: string): Date[] => {
-    const start = parseISO(startStr);
-    if (!isValid(start)) return [new Date()];
-    const end = parseISO(endStr);
-    const safeEnd = isValid(end) && end >= start ? end : start;
-    const count = Math.min(differenceInDays(safeEnd, start) + 1, 60);
-    return Array.from({ length: Math.max(count, 1) }, (_, i) => addDays(start, i));
-};
 
 const PPM = 2; // Pixels per minute
 const START_HOUR = 6; // 06:00 AM
@@ -79,10 +70,7 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
     const { result: events } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
-            selector: {
-                trip_id: { $eq: trip.id },
-                is_deleted: { $eq: false }
-            },
+            selector: tripEventsSelector(trip.id),
             sort: [{ start_time: 'asc' }]
         })
     );

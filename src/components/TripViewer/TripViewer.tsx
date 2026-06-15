@@ -2,27 +2,18 @@ import { useMemo, useState } from 'react';
 import { useRxData } from 'rxdb-hooks';
 import type { TripEventDocType } from '@/db/schema';
 import type { TripDocType } from '@/db/tripSchema';
-import { format, parseISO, addDays, differenceInDays, isValid } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { MapPin, Info, Cloud, Sun, CloudRain, Snowflake } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import DOMPurify from 'dompurify';
+import { buildTripDays } from '@/lib/dateRange';
+import { tripEventsSelector } from '@/lib/tripScoping';
 
 interface TripViewerProps {
     trip: TripDocType;
     onEventClick: (id: string) => void;
 }
-
-// Build the inclusive list of days for a trip from its start/end dates.
-// Defensive against invalid or inverted ranges; capped to keep the UI sane.
-const buildTripDays = (startStr: string, endStr: string): Date[] => {
-    const start = parseISO(startStr);
-    if (!isValid(start)) return [new Date()];
-    const end = parseISO(endStr);
-    const safeEnd = isValid(end) && end >= start ? end : start;
-    const count = Math.min(differenceInDays(safeEnd, start) + 1, 60);
-    return Array.from({ length: Math.max(count, 1) }, (_, i) => addDays(start, i));
-};
 
 // NOTE (Phase 4): mock weather keyed by the legacy Nagoya 2026 dates. Harmless
 // for other trips — unknown dates simply render "--". Real per-trip weather is
@@ -45,8 +36,7 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
         'tripevents',
         collection => collection.find({
             selector: {
-                trip_id: { $eq: trip.id },
-                is_deleted: { $eq: false },
+                ...tripEventsSelector(trip.id),
                 is_floating: { $eq: false }, // Scheduled events only in the journal view
             },
             sort: [{ start_time: 'asc' }]
