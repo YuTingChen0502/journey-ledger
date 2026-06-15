@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['logo.svg'],
       manifest: {
         name: 'Journey Ledger',
         short_name: 'Journey',
@@ -18,14 +18,10 @@ export default defineConfig({
         background_color: '#4a1920',
         icons: [
           {
-            src: 'pwa-icon.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-icon.png',
-            sizes: '512x512',
-            type: 'image/png'
+            src: 'logo.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable'
           }
         ]
       }

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Journey Ledger">
+  <rect width="64" height="64" rx="16" fill="#4a1920"/>
+  <!-- Journey: location pin -->
+  <path d="M32 12c-7.2 0-13 5.8-13 13 0 9 13 21 13 21s13-12 13-21c0-7.2-5.8-13-13-13z" fill="none" stroke="#E6C888" stroke-width="3" stroke-linejoin="round"/>
+  <!-- Ledger: entry lines inside the pin head -->
+  <line x1="27" y1="22.5" x2="37" y2="22.5" stroke="#E6C888" stroke-width="2.6" stroke-linecap="round"/>
+  <line x1="27" y1="28.5" x2="33" y2="28.5" stroke="#E6C888" stroke-width="2.6" stroke-linecap="round"/>
+</svg>

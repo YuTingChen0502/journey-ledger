@@ -83,6 +83,31 @@ After running the SQL:
 3. **Database → Publications → `supabase_realtime`** → confirm both tables are included.
 4. Smoke test from the app: sign in, create a trip, add an event, reload — data should persist and (on a second device) sync.
 
+## Backend quota enforcement (future work — design note)
+
+The app enforces quotas **only on the frontend** today (`src/lib/quotas.ts`:
+10 trips/user, 500 events/trip, 50 checklist items/event, 5000-char memos). This
+is a **UX guard, not a security boundary** — a determined client could bypass it
+by writing directly via the API.
+
+**Current risk: low.** RLS already restricts every row to its owner
+(`user_id = auth.uid()`), so a user can only ever inflate *their own* data. The
+quota gap is an abuse/cost concern, not a cross-user data risk.
+
+**Recommended future approach** (pick one, in rough order of effort):
+
+1. **Postgres trigger / RPC** — a `BEFORE INSERT` trigger (or a `SECURITY DEFINER`
+   RPC the client must call) that counts existing non-deleted rows for the user /
+   trip and raises on overflow. Authoritative and DB-local.
+2. **RLS policy with a count subquery** — express the cap inside the INSERT
+   policy's `WITH CHECK` (e.g. count of the user's non-deleted trips `< 10`).
+   Simple but adds a subquery cost per insert.
+3. **Edge Function** — route writes through a Supabase Edge Function that checks
+   quotas server-side. Most flexible, most moving parts.
+
+When implemented, keep the frontend checks too (fast feedback) and treat the
+backend as the source of truth.
+
 ## Why manual
 
 Trips and events use the same local-first sync pattern. Until the tables exist,

@@ -59,10 +59,13 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 * **Phase 5:** UI/UX rebrand and remove photo UI.
 * **Phase 6:** quota, tests, RLS documentation, and release cleanup.
 * **Phase 7:** trip edit / soft-delete + selected-trip persistence & recovery.
+* **Phase 8:** release polish & deploy readiness (assets, dead code, PWA, README, deploy docs).
+* **Phase 9:** Weather / Location cleanup.
+* **Phase 10:** Archive/Status + final hardening.
 
 ## Phase Status
 
-Current phase: Post-Phase-7 backlog / maintenance
+Current phase: Phase 9 — Weather / Location Cleanup
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -120,27 +123,30 @@ Completed:
   - **Archive: DEFERRED.** The `trips` schema has no status/archive field; adding one is an RxDB schema-version migration (risky) — not done this phase per scope. Soft-delete (hide) covers the immediate need.
   - **i18n:** added trip edit/delete/confirm/save/invalid-range copy (en + zh-TW). **Tests:** `selectedTrip.test.ts` (5; in-memory localStorage stub) + `isValidTripDateRange` cases added to `dateRange.test.ts` → **39 tests pass**.
   - Build/lint/test result: build passed; `npm test` 39/39 pass; targeted eslint on touched files **0 errors / 0 warnings**.
+- **Phase 8 — release polish & deploy readiness.** No features/schema changes.
+  - **Assets:** added neutral `public/logo.svg` (wine + gold pin/ledger mark, no copyright). Repointed all active refs to it — `index.html` favicon + apple-touch + splash, `TripWorkspace` logo, and the PWA manifest icon (`vite.config.ts`: single `image/svg+xml` icon, `includeAssets: ['logo.svg']`). Deleted the now-unused Nagoya/legacy binaries: `home_icon.jpg`, `splash-cover.jpg`, `pwa-icon.png`, `castle_logo.jpg`, `splash-logo.png`, `splash-logo-gold.jpg`, `vite.svg`. `public/` now contains only `logo.svg`.
+  - **PWA/noise:** removed the `bg-[url('/noise.png')]` decorative overlay in `WeatherDetailSheet.tsx` (the only `noise.png` reference) → the build-time "/noise.png didn't resolve" warning is **gone**. No visual change (the asset never existed; overlay was 3% opacity).
+  - **Dead code:** deleted `src/components/Home/LandingPage.tsx` (confirmed unused — only self-referenced).
+  - **Docs:** `README.md` finalized (features, quotas, local setup with `.env.example`, env vars + anon-key-only warning). New `docs/DEPLOYMENT.md` (Supabase setup checklist, bootstrap SQL, RLS, realtime, env vars, build/output, post-deploy smoke test). `supabase/README.md` gained a **backend quota enforcement design note** (frontend = UX only; recommended trigger/RPC/RLS/edge-function approaches; current risk = low because RLS already scopes rows per owner).
+  - **Lint:** as a tiny safe fix in a touched file, `t(\`wmo.${...}\` as any)` → `as TranslationKey` in `WeatherDetailSheet.tsx` (type-only; behavior unchanged), clearing its 2 pre-existing `any` errors.
+  - Build/lint/test result: build passed (no `noise.png` warning); `npm test` 39/39 pass; targeted eslint on touched files **0 errors / 0 warnings**.
 
-## Hardcode classification (Phase 6 release audit)
+## Hardcode classification (Phase 8 release audit)
 
 Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` references:
 - **Allowed legacy seed/demo data:** `src/db/trips.ts` (`LEGACY_TRIP_ID` + seeded "Nagoya 2026" trip + its dates). Adopt-existing-events data, not active routing.
 - **Allowed comments:** `src/App.tsx` (bootstrap comment), `src/lib/parser.ts` (date-header regex example), `src/services/geocoding.ts` (example string).
-- **Deferred (harmless):** `src/components/TripViewer/TripViewer.tsx` mock `WEATHER_FORECAST` keyed to 2026 dates — hidden for non-legacy trips; not real weather.
-- **Dead code (deferred cleanup):** `src/components/Home/LandingPage.tsx` shows "Nagoya 2026" but is NOT rendered anywhere — safe to delete later.
-- **Deferred assets:** Nagoya-themed `public/` images (`home_icon.jpg`, `splash-cover.jpg`, `castle_logo.jpg`, `pwa-icon.png`).
-- **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no product copy implies all trips are Nagoya.
+- **Allowed legacy fallback constants:** `src/context/SettingsContext.tsx` `LEGACY_KEY_LANG`/`LEGACY_KEY_FONT` (`nagoya_*`) — read-once migration only.
+- **Deferred to Phase 9 (harmless):** `src/components/TripViewer/TripViewer.tsx` mock `WEATHER_FORECAST` keyed to 2026 dates — hidden for non-legacy trips; not real weather.
+- **DELETED in Phase 8:** dead `LandingPage.tsx`; Nagoya-themed `public/` binaries (`home_icon.jpg`, `splash-cover.jpg`, `pwa-icon.png`, `castle_logo.jpg`, `splash-logo*.{png,jpg}`, `vite.svg`). Active branding is now the neutral `public/logo.svg`.
+- **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset implies all trips are Nagoya.
 
 In progress:
-- (none — Phase 7 complete)
+- (none — Phase 8 complete)
 
-Next (Post-Phase-7 backlog / maintenance — recommended small phases):
-1. Trip **archive / status** (deferred from Phase 7 — needs a `trips` schema-version migration; do it deliberately).
-2. Public asset refresh (de-Nagoya logo/splash) + delete dead `LandingPage.tsx`.
-3. Real per-trip weather (replace mock `WEATHER_FORECAST`).
-4. Backend quota enforcement (per-user trips / per-trip events) — frontend quotas are UX-only.
-5. Legacy lint-debt cleanup (remaining `no-explicit-any` / react-hooks items in untouched legacy files).
-6. (Optional) cascade soft-delete of a trip's events on trip delete, behind explicit confirmation (Phase 7 intentionally leaves events untouched).
+Next:
+- **Phase 9 — Weather / Location cleanup:** replace/remove the mock `WEATHER_FORECAST` (keyed to legacy 2026 dates) so no trip implies Nagoya; tidy location/geocoding behavior.
+- **Phase 10 — Archive/Status + final hardening:** trip archive/status (needs a deliberate `trips` schema-version migration); backend quota enforcement; legacy lint-debt cleanup; optional cascade soft-delete of a trip's events on delete (behind explicit confirmation).
 
 ## Architecture Changes (running log)
 
@@ -151,6 +157,7 @@ Next (Post-Phase-7 backlog / maintenance — recommended small phases):
 - **Phase 5:** Active UI rebranded to Journey Ledger (i18n copy, TripLibrary, dashboard footer). Photo/base64 upload removed from EventDetailView (existing images read-only; schema unchanged). Mock weather hidden for non-legacy trips. Settings localStorage keys renamed to `journey_ledger_*` with one-time legacy fallback. New header "All Trips" button decouples "return to library" from the logo. No data-layer changes; Phase 4 trip-scoping intact.
 - **Phase 6:** `src/lib/` pure-logic layer + Vitest (`vitest run`): `quotas.ts` (frontend UX quotas, enforced in Create/Event/Import/Detail), `dateRange.ts` (`buildTripDays`), `tripScoping.ts` (`tripEventsSelector`). Supabase RLS/setup docs expanded. No schema/replication/UI changes.
 - **Phase 7:** Trip management without schema change — `EditTripModal` (soft `incrementalPatch`), soft-delete from TripLibrary (`is_deleted=true`, events untouched), and `src/lib/selectedTrip.ts` persistence (`journey_ledger_selected_trip_id`). `AppContent` now resolves the persisted selection, excludes deleted trips, and recovers to the library via derived state (no setState-in-effect, no infinite loading). `dateRange.ts` gained `isValidTripDateRange` (used by Create + Edit). Archive deferred (no schema field).
+- **Phase 8:** Release polish only. Single neutral brand asset `public/logo.svg` replaces all Nagoya binaries (favicon, splash, workspace logo, PWA manifest icon); unused image binaries + dead `LandingPage.tsx` deleted. `noise.png` reference removed (build warning gone). Docs finalized: `README.md`, new `docs/DEPLOYMENT.md`, backend-quota design note in `supabase/README.md`. No data-layer, schema, or behavior changes.
 
 ## Known Risks (running log)
 
@@ -195,6 +202,10 @@ Next (Post-Phase-7 backlog / maintenance — recommended small phases):
   - Soft-deleting a trip **does not delete its events** (they remain under their `trip_id`, just hidden because no non-deleted trip references them in the library). Intentional MVP; optional cascade soft-delete is a future opt-in.
   - Recovery clears only the persisted localStorage id, not the in-memory `selectedTripId` state; the derived view shows the library. Edge: if a soft-deleted trip is later un-deleted (e.g. external re-sync) within the same session, the workspace could reappear. Extremely unlikely; harmless.
   - Cross-device race: on reload, a persisted trip not yet pulled from Supabase could briefly recover to the library before sync completes (local-first). Acceptable (no infinite load); local/legacy trips are present immediately.
+- **Phase 8 — release polish:**
+  - PWA manifest now uses a single **SVG** icon (`image/svg+xml`, `sizes:any`, `purpose:any maskable`). Modern browsers accept this for install; if a target platform requires raster PWA icons (e.g. older Android/iOS home-screen rendering), add 192/512 PNGs later. No store submission depends on this today.
+  - `apple-touch-icon` now points to the SVG; iOS historically prefers PNG for the home-screen icon — acceptable for now, revisit in an asset pass if iOS install fidelity matters.
+  - Pre-existing legacy lint debt remains in untouched files (e.g. EventModal `setOpen` warning, other `no-explicit-any`) — out of scope for this phase.
 
 ## Update Policy
 

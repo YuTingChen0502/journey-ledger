@@ -4,7 +4,7 @@ import { Cloud, CloudFog, CloudLightning, CloudRain, Snowflake, Sun } from 'luci
 import type { SpotWeatherData } from '@/hooks/useSpotWeather';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useTranslation } from '@/hooks/useTranslation';
+import { useTranslation, type TranslationKey } from '@/hooks/useTranslation';
 
 interface WeatherDetailSheetProps {
     open: boolean;
@@ -75,9 +75,6 @@ export function WeatherDetailSheet({ open, onClose, data, locationName }: Weathe
                 </div>
 
                 <div className="flex flex-col h-full w-full overflow-hidden relative">
-                    {/* Background Noise Texture (Subtle) */}
-                    <div className="absolute inset-0 bg-[url('/noise.png')] opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
-
                     {/* Main Content - Native Scroll for Mobile Robustness */}
                     <div className="flex-1 overflow-y-auto px-5 pb-10 space-y-6 scrollbar-hide w-full relative z-10 overscroll-contain">
 
@@ -94,7 +91,7 @@ export function WeatherDetailSheet({ open, onClose, data, locationName }: Weathe
                                 </div>
                                 <div className="flex flex-col items-center gap-1">
                                     <div className="text-xl font-medium text-white/80 font-serif">
-                                        {t(`wmo.${data.code}` as any) || "Clear"}
+                                        {t(`wmo.${data.code}` as TranslationKey) || "Clear"}
                                     </div>
                                     {showRainChance && (
                                         <div className="px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-bold tracking-wide flex items-center gap-1">
@@ -113,7 +110,7 @@ export function WeatherDetailSheet({ open, onClose, data, locationName }: Weathe
                         {/* Short Text Summary */}
                         <div className="bg-white/5 backdrop-blur-md rounded-2xl p-5 text-sm leading-relaxed border border-white/10 shadow-sm">
                             <span className="font-serif text-amber-200/80 block mb-1 text-xs uppercase tracking-widest">Forecast</span>
-                            {t(`wmo.${data.hourly?.weather_code[hourlyIndices[0]?.i || 0]}` as any) || "Clear"} conditions expected around 12:00 AM.
+                            {t(`wmo.${data.hourly?.weather_code[hourlyIndices[0]?.i || 0]}` as TranslationKey) || "Clear"} conditions expected around 12:00 AM.
                             Wind gusts up to {10} km/h.
                         </div>
 
