@@ -1,16 +1,35 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CalendarDays, Map, ChevronLeft } from "lucide-react"
+import { format, parseISO } from "date-fns"
 import { GlobalSettingsControl } from "./GlobalSettingsControl"
 import { useTranslation } from "@/hooks/useTranslation"
+import type { TripDocType } from "@/db/tripSchema"
 
 interface TripDashboardProps {
     onNavigate: (view: 'overview' | 'table' | 'planner') => void;
     onBack?: () => void;
+    trip?: TripDocType;
 }
 
-export function TripDashboard({ onNavigate, onBack }: TripDashboardProps) {
+// Format a YYYY-MM-DD string defensively (falls back to the raw value).
+const formatDate = (value: string): string => {
+    try {
+        return format(parseISO(value), 'MMM d, yyyy');
+    } catch {
+        return value;
+    }
+};
+
+export function TripDashboard({ onNavigate, onBack, trip }: TripDashboardProps) {
     const { t } = useTranslation();
+
+    // Phase 3: show the selected trip's details when available, otherwise fall
+    // back to the legacy localized copy.
+    const title = trip?.title ?? t('trip.title');
+    const dateRange = trip
+        ? `${formatDate(trip.start_date)} — ${formatDate(trip.end_date)}`
+        : t('trip.dates');
 
     return (
         <div className="h-full flex flex-col items-center justify-center p-6 space-y-12 animate-in fade-in duration-500 relative overflow-y-auto pb-32">
@@ -27,12 +46,17 @@ export function TripDashboard({ onNavigate, onBack }: TripDashboardProps) {
             {/* Header */}
             <div className="text-center space-y-4">
                 <h1 className="text-5xl md:text-6xl font-serif font-bold text-primary tracking-tight">
-                    {t('trip.title')}
+                    {title}
                 </h1>
+                {trip?.destination && (
+                    <p className="text-muted-foreground/80 text-base font-medium">
+                        {trip.destination}
+                    </p>
+                )}
                 <div className="flex items-center justify-center gap-3">
                     <div className="h-px w-12 bg-border"></div>
                     <p className="text-muted-foreground text-lg font-medium uppercase tracking-widest">
-                        {t('trip.dates')}
+                        {dateRange}
                     </p>
                     <div className="h-px w-12 bg-border"></div>
                 </div>
