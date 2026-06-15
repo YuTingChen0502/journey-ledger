@@ -1,4 +1,4 @@
-import { useSettings } from '../context/SettingsContext';
+import { useSettings } from '../context/settings';
 import { translations, type TranslationKey } from '../i18n/translations';
 export type { TranslationKey };
 

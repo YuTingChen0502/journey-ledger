@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRxCollection } from 'rxdb-hooks';
 import type { TripEventDocType, TodoItem } from '@/db/schema';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,6 @@ import {
     Calendar as CalendarIcon,
     Clock,
     Trash2,
-    Image as ImageIcon,
     Ticket,
     Navigation,
     CheckSquare,
@@ -59,15 +58,16 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
 
     // Fetch Event
     useEffect(() => {
+        // When closed or with no event, the component renders null anyway, so we
+        // simply skip fetching (avoids a synchronous setState in the effect).
         if (!eventId || !open) {
-            setEvent(null);
             return;
         }
 
         const fetchEvent = async () => {
             const doc = await collection?.findOne(eventId).exec();
             if (doc) {
-                const data = doc.toJSON() as any;
+                const data = doc.toJSON() as TripEventDocType;
                 setEvent(data);
                 setTitle(data.title || '');
                 setDescription(data.description || '');
@@ -93,6 +93,24 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
         fetchEvent();
     }, [eventId, open, collection]);
 
+    // Atomic Updates. Declared (memoized) before the effects that use it so it
+    // can be a stable dependency.
+    const updateField = useCallback(async (field: Partial<TripEventDocType>) => {
+        if (!event || !collection) return;
+
+        try {
+            const doc = await collection.findOne(event.id).exec();
+            await doc?.incrementalPatch({
+                ...field,
+                updated_at: Date.now()
+            });
+            // We rely on the next open to re-fetch; local state gives instant
+            // feedback in the meantime.
+        } catch (err) {
+            console.error('Failed to update event', err);
+        }
+    }, [event, collection]);
+
     // Added: Auto-geocoding on mount if location is set but no coords (covers legacy data)
     useEffect(() => {
         if (open && location && (!lat || !lng)) {
@@ -105,26 +123,7 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                 }
             }).catch(() => { });
         }
-    }, [open, eventId, location]);
-
-    // Atomic Updates
-    const updateField = async (field: Partial<TripEventDocType>) => {
-        if (!event || !collection) return;
-
-        try {
-            const doc = await collection.findOne(event.id).exec();
-            await doc?.incrementalPatch({
-                ...field,
-                updated_at: Date.now()
-            });
-            // Update local state to reflect change immediately if needed, 
-            // though RxDB usually propagates this via subscription if we were using it.
-            // Here we just rely on the fact that next open will re-fetch, 
-            // but for instant feedback in fields we use local state.
-        } catch (err) {
-            console.error('Failed to update event', err);
-        }
-    };
+    }, [open, eventId, location, lat, lng, updateField]);
 
     const handleTitleChange = (v: string) => {
         setTitle(v);
@@ -186,18 +185,8 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
 
 
 
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                setImage(base64);
-                updateField({ image: base64 });
-            };
-            reader.readAsDataURL(file);
-        }
-    };
+    // Phase 5: photo/base64 upload removed (non-core). Existing `image` data is
+    // still read-only below for backward compatibility; no new images are written.
 
     const handleDelete = async () => {
         if (!event || !collection) return;
@@ -413,38 +402,23 @@ export function EventDetailView({ eventId, open, onClose }: EventDetailViewProps
                     </div>
 
                     {/* RIGHT COLUMN: Souvenir (Polaroid Side) */}
+                    {/* Phase 5: photo upload removed. Existing images render read-only. */}
                     <div className="sm:w-[40%] bg-muted/10 p-6 flex flex-col items-center justify-center gap-6 border-l border-dashed border-border/50">
-                        {/* Polaroid Frame */}
-                        <div className="relative group cursor-pointer transition-transform duration-500 hover:rotate-0 rotate-1">
-                            <div className="bg-white dark:bg-zinc-100 p-3 pb-8 shadow-xl rounded-sm w-48 sm:w-56 transition-all hover:shadow-2xl hover:scale-[1.02]">
-                                <div className="aspect-square bg-zinc-100 dark:bg-zinc-200 overflow-hidden relative rounded-sm border border-zinc-200">
-                                    {image ? (
+                        {image && (
+                            <div className="relative transition-transform duration-500 rotate-1">
+                                <div className="bg-white dark:bg-zinc-100 p-3 pb-8 shadow-xl rounded-sm w-48 sm:w-56">
+                                    <div className="aspect-square bg-zinc-100 dark:bg-zinc-200 overflow-hidden relative rounded-sm border border-zinc-200">
                                         <img src={image} alt="Memory" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-zinc-300">
-                                            <ImageIcon className="w-8 h-8 mb-2" />
-                                            <span className="text-[10px] uppercase tracking-wide">{t('detail.photo.add')}</span>
-                                        </div>
-                                    )}
-                                    {/* Invisible File Input Overlay */}
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                        onChange={handleImageUpload}
-                                    />
+                                    </div>
                                 </div>
+                                {/* Tape effect (purely decorative CSS) */}
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-4 bg-yellow-100/30 dark:bg-white/10 backdrop-blur-sm -rotate-2 shadow-sm border border-white/10" />
                             </div>
-                            {/* Tape effect (purely decorative CSS) */}
-                            <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-16 h-4 bg-yellow-100/30 dark:bg-white/10 backdrop-blur-sm -rotate-2 shadow-sm border border-white/10" />
-                        </div>
+                        )}
 
                         <div className="text-center space-y-1">
                             <p className="text-xs text-muted-foreground italic">
                                 "{t('detail.quote')}"
-                            </p>
-                            <p className="text-[10px] text-muted-foreground/50 uppercase tracking-widest">
-                                {t('detail.location_tag')}
                             </p>
                         </div>
                     </div>

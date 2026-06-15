@@ -89,9 +89,11 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
         return `${format(first, 'MMM d')} — ${format(last, 'MMM d')}`;
     }, [trip.start_date, trip.end_date]);
 
-    // Weather Logic (mock; see WEATHER_FORECAST note)
-    const currentWeather = WEATHER_FORECAST[effectiveDay] || { temp: '--', condition: '', icon: Cloud, colorClass: 'text-slate-500' };
-    const WeatherIcon = currentWeather.icon;
+    // Weather Logic (mock; see WEATHER_FORECAST note). Only shown when there is
+    // mock data for the day so non-legacy trips don't display placeholder/Nagoya
+    // weather. Real per-trip weather is out of scope for Phase 5.
+    const currentWeather = WEATHER_FORECAST[effectiveDay];
+    const WeatherIcon = currentWeather?.icon ?? Cloud;
 
     return (
         <div className="flex flex-col h-full bg-background relative">
@@ -101,11 +103,13 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
                     <h1 className="text-3xl font-serif text-primary">{trip.title}</h1>
                     <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">{tripDateRange}</p>
                 </div>
-                {/* Weather Widget: Refined Muted Palette */}
-                <div className="flex items-center gap-1.5 bg-muted/40 px-3 py-1.5 rounded-full backdrop-blur-sm border border-border/20">
-                    <WeatherIcon className={`h-4 w-4 stroke-[1.5px] ${currentWeather.colorClass}`} />
-                    <span className={`text-sm font-medium ${currentWeather.colorClass}`}>{currentWeather.temp}</span>
-                </div>
+                {/* Weather Widget: shown only when mock data exists for the day */}
+                {currentWeather && (
+                    <div className="flex items-center gap-1.5 bg-muted/40 px-3 py-1.5 rounded-full backdrop-blur-sm border border-border/20">
+                        <WeatherIcon className={`h-4 w-4 stroke-[1.5px] ${currentWeather.colorClass}`} />
+                        <span className={`text-sm font-medium ${currentWeather.colorClass}`}>{currentWeather.temp}</span>
+                    </div>
+                )}
             </div>
 
             {/* Day Selector (Tabs) */}

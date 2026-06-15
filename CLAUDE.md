@@ -61,7 +61,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 
 ## Phase Status
 
-Current phase: Phase 5 — UI/UX rebrand and remove photo UI
+Current phase: Phase 6 — quota, tests, RLS documentation, and release cleanup
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -95,12 +95,21 @@ Completed:
   - `EventDetailView.tsx` — unchanged; edits by event id, and ids only ever come from trip-scoped parent queries, so there is no cross-trip edit path.
   - Behavior: selecting Nagoya shows the legacy events/dates exactly as before; a new trip shows empty Journal/Timeline/Table until its own events are added; all writes attach to the selected trip.
   - Build/lint/test result: build passed; touched files introduce no new lint errors (pre-existing `any` in ImportModal/TripTable catch blocks and the EventModal `setOpen` warning remain as legacy debt); no test script.
+- **Phase 5 — UI/UX rebrand + photo UI removal.** De-Nagoya'd the active UI and removed the non-core photo feature; Phase 4 trip-scoping preserved.
+  - **Rebrand copy:** `src/i18n/translations.ts` — `trip.title` → "Journey Ledger", `trip.dates` → generic ("Travel Journal & Planner" / "旅行日誌與規劃"), `dashboard.footer` → "Journey Ledger", `import.placeholder` examples de-Nagoya'd (no "Nagoya Castle"/"名古屋城"), `detail.location_tag` → "Journey Ledger"; added `nav.all_trips` (All Trips / 所有旅行).
+  - **Navigation (polish patch):** `TripWorkspace.tsx` header now distinguishes two actions — the **logo + "Journey Ledger" title return to All Trips** (`onBackToTrips`), while a **"Back" / "上一頁" button returns to the current trip dashboard** (`setMode('dashboard')`, internal to the workspace). TripDashboard keeps its own explicit "All Trips" button (dashboard mode). New i18n keys `nav.all_trips` + `nav.back`.
+  - **Lint cleanup (polish patch):** `useSettings` + the context object/types moved to `src/context/settings.ts` so `SettingsContext.tsx` exports only the `SettingsProvider` component (fixes `react-refresh/only-export-components`); consumers repointed. `EventDetailView.tsx` — `updateField` hoisted + `useCallback` (fixes use-before-declaration + effect deps), `toJSON() as any` → `as TripEventDocType`, and a redundant synchronous `setEvent(null)` removed. The six Phase 5 files now lint clean (zero errors).
+  - **Photo UI removed:** `EventDetailView.tsx` — deleted the file input + `handleImageUpload` (no new base64 written); existing `image` data now renders **read-only** (polaroid shown only if an image already exists); removed the `ImageIcon`/"Add Photo" affordance and the Nagoya location tag. `image` schema field untouched (backward compatible). Memo/checklist/location/weather/navigation/title/description/category editing all preserved.
+  - **Weather:** `TripViewer.tsx` — mock weather widget now only renders when mock data exists for the day, so non-legacy trips show no weather (no "--" / no Nagoya implication). Legacy Nagoya still shows its mock forecast.
+  - **TripLibrary:** added a product tagline + clearer "All Trips" label and a more explanatory empty state.
+  - **Settings keys:** `SettingsContext.tsx` — renamed to `journey_ledger_lang` / `journey_ledger_font_scale`; reads legacy `nagoya_*` keys once as a fallback (no preference loss); all writes go to the new keys.
+  - Build/lint/test result: build passed; touched files introduce no new lint errors (pre-existing EventDetailView `any`/access-order/deps and the SettingsContext `react-refresh` warning remain as legacy debt, line-shifted only); no test script.
 
 In progress:
-- Phase 5 — UI/UX rebrand and remove photo UI
+- Phase 6 — quota, tests, RLS documentation, and release cleanup
 
 Next:
-- Phase 6 — quota, tests, RLS documentation, release cleanup
+- Post-Phase 6 backlog / maintenance (incl. the deferred trip edit/delete/archive phase)
 
 ## Architecture Changes (running log)
 
@@ -108,6 +117,7 @@ Next:
 - **Phase 2:** Trip-selection gate in `AppContent` (`selectedTripId` state). New `src/components/Trips/` module (TripLibrary / TripCard / CreateTripModal). TripLibrary is the post-auth landing; the legacy single-trip workspace renders only after a trip is selected. Workspace internals remain legacy-scoped (`TRIP_ID = 'nagoya-2026'`) — selection is an entry point, not yet a data scope. `selectedTripId` is in-memory only (not persisted across reloads).
 - **Phase 3:** Workspace extracted from `App.tsx` into `src/components/TripWorkspace.tsx`, which takes the resolved `trip` object. `App.tsx` is now a thin router (AppShell → AppContent → TripLibrary | TripWorkspace). TripDashboard displays the selected trip's identity. The legacy `TRIP_ID = 'nagoya-2026'` is now isolated in ONE place (`TripWorkspace`) with an explicit Phase 4 TODO block listing every inner view that still depends on it.
 - **Phase 4:** All core event views/writes are trip-scoped via `trip.id`, and day ranges are derived from `trip.start_date`/`trip.end_date`. The active `nagoya-2026` constant is gone; `nagoya-2026` now only persists as the legacy seed trip's id + its events' `trip_id`. Scoping is enforced at the RxDB query level (`trip_id` selector) in TripViewer/TimelineView/TripTable, at the write level in EventModal/ImportModal (`trip_id: tripId`), and structurally by `key={trip.id}` remounting the workspace. EventDetailView remains id-based but is only fed trip-scoped ids.
+- **Phase 5:** Active UI rebranded to Journey Ledger (i18n copy, TripLibrary, dashboard footer). Photo/base64 upload removed from EventDetailView (existing images read-only; schema unchanged). Mock weather hidden for non-legacy trips. Settings localStorage keys renamed to `journey_ledger_*` with one-time legacy fallback. New header "All Trips" button decouples "return to library" from the logo. No data-layer changes; Phase 4 trip-scoping intact.
 
 ## Known Risks (running log)
 
@@ -136,9 +146,16 @@ Next:
   - Out-of-range imported events fall into the backlog (floating). They are NOT lost, but there is no explicit "outside trip dates" UI section yet.
   - Photo/base64 image UI still present (Phase 5).
 - **Trip edit / delete / archive — KNOWN PRODUCT LIMITATION (deferred):**
-  - Trips can be **created and selected, but not edited, deleted, or archived** yet. There is intentionally no trip edit/delete/archive UI as of Phase 4.
+  - Trips can be **created and selected, but not edited, deleted, or archived** yet. There is intentionally no trip edit/delete/archive UI as of Phase 5.
   - Selected-trip recovery is incomplete: if a trip is removed externally (e.g. another device, or direct DB edit) while selected, `AppContent` can sit on "Loading trip…". No graceful fallback to TripLibrary yet.
-  - Trip edit/delete (and robust recovery for a missing selected trip) should be handled in a **later small phase after Phase 4 data scoping is stable** — not folded into the Phase 5 visual rebrand.
+  - Trip edit/delete (and robust recovery for a missing selected trip) should be handled in a **later small phase** — not folded into Phase 6 release cleanup.
+- **Phase 5 — remaining items / risks:**
+  - Selected trip is still NOT persisted across reloads (returns to TripLibrary). Candidate for Phase 6 or the trip-management phase.
+  - Nagoya-themed binary assets in `public/` remain (logo `home_icon.jpg`, `splash-cover.jpg`, `castle_logo.jpg`, `pwa-icon.png`) — not worth replacing yet; no active text branding depends on them. Replace in a future asset pass.
+  - Dead/legacy `src/components/Home/LandingPage.tsx` still contains "Nagoya 2026" but is NOT imported/rendered anywhere — safe to delete in Phase 6 cleanup.
+  - Mock weather (`WEATHER_FORECAST` in TripViewer) is still keyed to legacy 2026 dates; now hidden for other trips, but it is not real per-trip weather.
+  - `detail.photo.add` translation key is now unused (harmless); the `image` schema field is retained for backward-compatible read-only display.
+  - Legacy lint debt persists in untouched legacy files (EventDetailView, SettingsContext react-refresh, etc.) — deferred to Phase 6.
 
 ## Update Policy
 

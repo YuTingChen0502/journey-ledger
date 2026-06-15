@@ -1,15 +1,17 @@
 export const translations = {
     en: {
         // Dashboard
-        "trip.title": "Nagoya 2026",
-        "trip.dates": "Jan 31 — Feb 07",
+        "trip.title": "Journey Ledger",
+        "trip.dates": "Travel Journal & Planner",
         "dashboard.overview.title": "Overview",
         "dashboard.overview.desc": "View your travel journal and itinerary in a read-only format.",
         "dashboard.planning.title": "Planning",
         "dashboard.planning.desc": "Edit schedule, manage data grid, and organize events.",
-        "dashboard.footer": "Single Trip Mode • v1.1",
+        "dashboard.footer": "Journey Ledger",
 
         // Navigation
+        "nav.all_trips": "All Trips",
+        "nav.back": "Back",
         "nav.home": "Home",
         "nav.journal": "Journal",
         "nav.plan": "Plan",
@@ -43,7 +45,7 @@ export const translations = {
         "import.date_label": "Default Start Date:",
         "import.pick_date": "Pick a date",
         "import.fallback_hint": "(Fallback for items without a date header)",
-        "import.placeholder": "Paste your itinerary here...\nDate: 2026-01-31\n09:00 Breakfast\n10:30 Visit Nagoya Castle",
+        "import.placeholder": "Paste your itinerary here...\nDate: 2025-06-01\n09:00 Breakfast\n10:30 Visit the museum",
         "import.btn.analyze": "Analyze & Preview",
         "import.review.title": "Review & Edit Candidates",
         "import.btn.back": "Back to Input",
@@ -69,7 +71,7 @@ export const translations = {
         "detail.confirm_delete": "Are you sure you want to delete this event?",
         "detail.photo.add": "Add Photo",
         "detail.quote": "Collect moments, not things.",
-        "detail.location_tag": "Nagoya, 2026",
+        "detail.location_tag": "Journey Ledger",
         "detail.label.checklist": "Checklist",
         "detail.checklist.placeholder": "Item...",
         "detail.label.memo": "Memo",
@@ -123,15 +125,17 @@ export const translations = {
     },
     'zh-TW': {
         // Dashboard
-        "trip.title": "名古屋 2026",
-        "trip.dates": "1月31日 — 2月7日",
+        "trip.title": "Journey Ledger",
+        "trip.dates": "旅行日誌與規劃",
         "dashboard.overview.title": "行程概覽",
         "dashboard.overview.desc": "以閱讀模式查看您的旅行日誌與行程安排。",
         "dashboard.planning.title": "規劃管理",
         "dashboard.planning.desc": "編輯行程表、管理資料表格與活動細節。",
-        "dashboard.footer": "單次旅行模式 • v1.1",
+        "dashboard.footer": "Journey Ledger",
 
         // Navigation
+        "nav.all_trips": "所有旅行",
+        "nav.back": "上一頁",
         "nav.home": "首頁",
         "nav.journal": "日誌",
         "nav.plan": "規劃",
@@ -165,7 +169,7 @@ export const translations = {
         "import.date_label": "預設開始日期:",
         "import.pick_date": "選擇日期",
         "import.fallback_hint": "(用於沒有日期標題的項目)",
-        "import.placeholder": "在此貼上您的行程...\n範例:\nDate: 2026-01-31\n09:00 早餐\n10:30 參觀名古屋城",
+        "import.placeholder": "在此貼上您的行程...\n範例:\nDate: 2025-06-01\n09:00 早餐\n10:30 參觀博物館",
         "import.btn.analyze": "分析與預覽",
         "import.review.title": "審查與編輯",
         "import.btn.back": "返回輸入",
@@ -191,7 +195,7 @@ export const translations = {
         "detail.confirm_delete": "確定要刪除此活動嗎？",
         "detail.photo.add": "新增照片",
         "detail.quote": "收藏回憶，而非物品。",
-        "detail.location_tag": "名古屋, 2026",
+        "detail.location_tag": "Journey Ledger",
         "detail.label.checklist": "待辦事項",
         "detail.checklist.placeholder": "輸入項目...",
         "detail.label.memo": "備忘錄",

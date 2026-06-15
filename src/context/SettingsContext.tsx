@@ -1,29 +1,26 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { SettingsContext, type Language, type FontScale } from './settings';
 
-type Language = 'en' | 'zh-TW';
-type FontScale = 'compact' | 'comfort' | 'accessible';
-
-interface SettingsContextType {
-    language: Language;
-    setLanguage: (lang: Language) => void;
-    fontScale: FontScale;
-    setFontScale: (scale: FontScale) => void;
-}
-
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
-
-const STORAGE_KEY_LANG = 'nagoya_lang';
-const STORAGE_KEY_FONT = 'nagoya_font_scale';
+const STORAGE_KEY_LANG = 'journey_ledger_lang';
+const STORAGE_KEY_FONT = 'journey_ledger_font_scale';
+// Legacy keys (pre-rebrand). Read once as a fallback so existing users keep
+// their language / font preference; all writes go to the new keys.
+const LEGACY_KEY_LANG = 'nagoya_lang';
+const LEGACY_KEY_FONT = 'nagoya_font_scale';
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-    // 1. Initialize State from LocalStorage
+    // 1. Initialize State from LocalStorage (new key first, then legacy fallback)
     const [language, setLanguageState] = useState<Language>(() => {
-        return (localStorage.getItem(STORAGE_KEY_LANG) as Language) || 'en';
+        return (localStorage.getItem(STORAGE_KEY_LANG) as Language)
+            || (localStorage.getItem(LEGACY_KEY_LANG) as Language)
+            || 'en';
     });
 
     const [fontScale, setFontScaleState] = useState<FontScale>(() => {
-        return (localStorage.getItem(STORAGE_KEY_FONT) as FontScale) || 'compact';
+        return (localStorage.getItem(STORAGE_KEY_FONT) as FontScale)
+            || (localStorage.getItem(LEGACY_KEY_FONT) as FontScale)
+            || 'compact';
     });
 
     // 2. Persist & Side Effects
@@ -67,10 +64,5 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     );
 }
 
-export function useSettings() {
-    const context = useContext(SettingsContext);
-    if (!context) {
-        throw new Error('useSettings must be used within a SettingsProvider');
-    }
-    return context;
-}
+// `useSettings` and the context object now live in ./settings so this module
+// only exports the SettingsProvider component (react-refresh friendly).

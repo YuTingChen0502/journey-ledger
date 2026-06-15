@@ -9,7 +9,7 @@ import { ImportModal } from './ImportModal'
 import { EventModal } from './EventModal'
 import { EventDetailView } from './Timeline/EventDetailView'
 import { ErrorBoundary } from './ErrorBoundary'
-import { Plus, LogOut, Home, BookOpen, Map } from 'lucide-react'
+import { Plus, LogOut, Home, BookOpen, Map, ChevronLeft } from 'lucide-react'
 import { parseISO, isValid } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
@@ -57,11 +57,27 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
 
     const TopNavigation = (
         <>
-            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setMode('dashboard')}>
+            {/* Logo + app title → All Trips (TripLibrary). */}
+            <div
+                className="flex items-center gap-3 cursor-pointer group"
+                onClick={onBackToTrips}
+                title={t('nav.all_trips')}
+            >
                 <div className="relative w-12 h-12 rounded-full overflow-hidden transition-colors shadow-sm bg-[#4a1920]">
-                    <img src="/home_icon.jpg" alt="Home" className="w-full h-full object-cover opacity-95 group-hover:opacity-100 transition-opacity" />
+                    <img src="/home_icon.jpg" alt={t('nav.all_trips')} className="w-full h-full object-cover opacity-95 group-hover:opacity-100 transition-opacity" />
                 </div>
+                <span className="hidden sm:inline font-serif font-semibold text-primary tracking-tight">Journey Ledger</span>
             </div>
+
+            {/* Back → current trip dashboard (internal to this workspace). */}
+            <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-muted-foreground hover:text-foreground ml-1"
+                onClick={() => setMode('dashboard')}
+            >
+                <ChevronLeft className="h-4 w-4" /> {t('nav.back')}
+            </Button>
 
             {mode === 'planning' && (
                 <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg ml-4">

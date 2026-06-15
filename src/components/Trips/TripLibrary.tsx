@@ -37,7 +37,10 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
                             Journey Ledger
                         </h1>
                         <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                            Your Trips
+                            All Trips
+                        </p>
+                        <p className="text-xs text-muted-foreground/70">
+                            Your local-first travel journal &amp; planner — pick a trip or start a new one.
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -59,7 +62,7 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
                         <div className="space-y-1">
                             <h2 className="text-xl font-serif font-semibold text-foreground">No trips yet</h2>
                             <p className="text-sm text-muted-foreground max-w-sm">
-                                Create your first trip to start planning your journey.
+                                Journey Ledger keeps a journal and plan for each trip. Create your first trip to get started — everything works offline and syncs when you reconnect.
                             </p>
                         </div>
                         <CreateTripModal ownerId={ownerId} onCreated={onSelectTrip} />
