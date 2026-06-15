@@ -6,6 +6,7 @@ import { RxDBUpdatePlugin } from 'rxdb/plugins/update';
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { TRIP_EVENT_SCHEMA } from './schema';
+import { TRIP_SCHEMA } from './tripSchema';
 
 addRxPlugin(RxDBUpdatePlugin);
 addRxPlugin(RxDBQueryBuilderPlugin);
@@ -67,6 +68,9 @@ export const initDB = async () => {
                             return oldDoc;
                         }
                     }
+                },
+                trips: {
+                    schema: TRIP_SCHEMA
                 }
             });
 
@@ -78,6 +82,15 @@ export const initDB = async () => {
                     console.log('Replication started');
                 } catch (err) {
                     console.error('Failed to start replication:', err);
+                }
+
+                // Trips replication (Phase 1). Independent of events so a missing
+                // `trips` Supabase table cannot break event sync.
+                try {
+                    await module.startTripsReplication(db.trips);
+                    console.log('Trips replication started');
+                } catch (err) {
+                    console.error('Failed to start trips replication:', err);
                 }
             });
 

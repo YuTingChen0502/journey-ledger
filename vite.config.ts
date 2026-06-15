@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Nagoya 2026',
-        short_name: 'Nagoya26',
-        description: 'Nagoya 2026 Trip Planner',
+        name: 'Journey Ledger',
+        short_name: 'Journey',
+        description: 'Journey Ledger — a local-first travel journal and planner.',
         theme_color: '#4a1920',
         background_color: '#4a1920',
         icons: [

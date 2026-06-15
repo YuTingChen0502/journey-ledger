@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { initDB } from './db'
+import { ensureLegacyTrip } from './db/trips'
 import { Auth } from './components/Auth'
 import { Button } from './components/ui/button'
 import { Toaster } from "@/components/ui/sonner"
@@ -39,8 +40,14 @@ function AppShell() {
   // DB Initialization: Only start when we have a session to ensure replication has context
   useEffect(() => {
     if (session?.user?.id) {
+      const ownerId = session.user.id;
       initDB().then((database) => {
         setDb(database);
+        // Phase 1: ensure the legacy Nagoya 2026 trip exists so existing
+        // events (trip_id = 'nagoya-2026') are not orphaned. Non-blocking.
+        ensureLegacyTrip(database.trips, ownerId).catch(err => {
+          console.error('Legacy trip init failed', err);
+        });
       }).catch(err => {
         console.error('DB Init Failed', err);
       });

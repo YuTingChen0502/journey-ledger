@@ -1,40 +1,45 @@
-# Nagoya 2026 Trip Planner
+# Journey Ledger
 
-**Nagoya 2026 Trip Planner** 是一個專為 2026 名古屋之旅打造的現代化、離線優先 (Local-First) 的行程管理工具。結合了進階的 PWA 技術與美觀的雜誌風格介面。
+**Journey Ledger** is a local-first travel journal and planner. It lets you capture, plan, and review trips with a magazine-style interface that works fully offline and syncs when you reconnect.
 
-## 📚 專案文檔 (Documentation)
+> **Project direction:** Journey Ledger began as the single-trip **Nagoya 2026** planner (`Nagoya_ledger`) and is being refactored into a general **multi-trip** travel ledger. Multi-trip support is planned — see the phase plan in [`CLAUDE.md`](CLAUDE.md). The current build still behaves as the original single-trip app while the refactor is in progress.
 
-詳細的專案說明文件請參閱 `docs/` 目錄：
+## Tech Stack
 
-*   **📖 [功能說明與操作指南 (User Guide)](docs/USER_GUIDE.md)**
-    *   了解如何使用儀表板、時間軸規劃、智慧匯入以及離線模式。
-*   **🛠️ [技術架構與資安檢視 (Technical Architecture)](docs/TECHNICAL_ARCHITECTURE.md)**
-    *   詳細闡述 React 19 + RxDB + Supabase 的技術堆疊、系統架構圖以及資安評估報告。
+* **React + TypeScript + Vite** — frontend.
+* **RxDB** — local-first IndexedDB storage (offline-first).
+* **Supabase** — Auth, PostgreSQL, and sync.
+* **PWA** — installable, offline-capable.
 
-## 🚀 快速開始 (Quick Start)
+## Core Features
 
-### 環境需求
-*   Node.js (v18+)
-*   npm or yarn
+* **Journal / Overview** — review your trip.
+* **Planning Timeline** — interactive, drag-and-resize itinerary planning.
+* **Table** — tabular event editing and batch actions.
+* **Smart Import** — paste an itinerary and parse it into events.
+* **Event Detail** — per-event notes, checklist, and location.
+* **Offline-first** — full operation without a network; auto-sync when online.
 
-### 安裝與執行
+## Quick Start
+
 ```bash
-# 1. 安裝依賴
+# 1. Install dependencies
 npm install
 
-# 2. 啟動開發伺服器
+# 2. Start the dev server
 npm run dev
 
-# 3. 建置生產版本
+# 3. Build for production
 npm run build
 ```
 
-## ✨ 核心特色 (Key Features)
+Supabase credentials are supplied via environment variables (see `.env`). Do not commit secrets.
 
-*   **離線優先 (Offline-First)**: 基於 RxDB，無網路也能完整操作，連線後自動同步。
-*   **雜誌風格介面 (Magazine Aesthetic)**: 採用 Editorial Color Palette (Teal/Terracotta) 與精緻的排版。
-*   **智慧自動化**: 整合 OpenStreetMap 自動定位與 Open-Meteo 即時氣象。
-*   **安全可靠**: 完整的資料驗證 (Zod) 與 權限控制 (RLS)。
+## Documentation
+
+* **[User Guide](docs/USER_GUIDE.md)** — dashboard, timeline planning, smart import, offline mode.
+* **[Technical Architecture](docs/TECHNICAL_ARCHITECTURE.md)** — stack, architecture, and security review.
+* **[CLAUDE.md](CLAUDE.md)** — project direction, phase plan, and engineering rules for contributors and AI coding sessions.
 
 ---
-*Version: v1.1.0*
+*Originated from `Nagoya_ledger`. Now evolving into a general multi-trip travel ledger.*

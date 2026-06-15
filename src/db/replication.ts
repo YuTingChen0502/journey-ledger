@@ -2,6 +2,7 @@ import type { RxCollection } from 'rxdb';
 import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { supabase } from '../services/supabase';
 import type { TripEventDocType } from './schema';
+import type { TripDocType } from './tripSchema';
 import { Subject } from 'rxjs';
 
 const REPLICATION_SIZE = 100;
@@ -122,6 +123,126 @@ export const startReplication = async (collection: RxCollection<TripEventDocType
         .subscribe();
 
     // Attach listener cancellation if needed, though replicationState handles most lifecycle
+
+    return replicationState;
+};
+
+// ---------------------------------------------------------------------------
+// Trips replication (Phase 1)
+//
+// Mirrors the exact same local-first + Supabase JSONB pattern used for events,
+// but targets the dedicated `trips` table. Kept as a separate, fully-typed
+// function so the existing events replication path is left untouched.
+// ---------------------------------------------------------------------------
+
+type TripCheckpoint = { updated_at: number };
+
+interface TripSupabaseRow {
+    id: string;
+    updated_at: number;
+    deleted: boolean;
+    data: Partial<TripDocType>;
+}
+
+export const startTripsReplication = async (collection: RxCollection<TripDocType>) => {
+    const session = await supabase.auth.getSession();
+    const userId = session.data.session?.user?.id;
+
+    if (!userId) {
+        console.warn('Trips replication skipped: No User ID');
+        return null;
+    }
+
+    console.log('Starting Supabase Trips Replication for User:', userId);
+
+    const replicationState = await replicateRxCollection<TripDocType, TripCheckpoint>({
+        collection,
+        replicationIdentifier: 'supabase-jsonb-trips-v1',
+        pull: {
+            handler: async (checkpoint, batchSize) => {
+                const updatedAt = checkpoint ? checkpoint.updated_at : 0;
+
+                const { data, error } = await supabase
+                    .from('trips')
+                    .select('id, updated_at, deleted, data')
+                    .gt('updated_at', updatedAt)
+                    .order('updated_at', { ascending: true })
+                    .limit(batchSize);
+
+                if (error) {
+                    console.error('Supabase Trips Pull Error:', error);
+                    throw error;
+                }
+
+                const rows = (data ?? []) as unknown as TripSupabaseRow[];
+
+                // RxDB's replication protocol uses `_deleted` as its deletion
+                // marker; we also keep `is_deleted` as a queryable field, mirroring
+                // the events pattern.
+                const documents = rows.map((row) => ({
+                    ...row.data,
+                    id: row.id,
+                    updated_at: row.updated_at,
+                    is_deleted: row.deleted,
+                    _deleted: row.deleted,
+                    owner_id: userId // Ensure ownership is consistent locally
+                })) as (TripDocType & { _deleted: boolean })[];
+
+                return {
+                    documents,
+                    checkpoint: rows.length > 0
+                        ? { updated_at: rows[rows.length - 1].updated_at }
+                        : (checkpoint ?? { updated_at: 0 })
+                };
+            }
+        },
+        push: {
+            handler: async (docs) => {
+                const rows = docs.map((d) => {
+                    const doc = d.newDocumentState;
+
+                    // PACK: metadata into columns, everything else into JSONB.
+                    const { id, updated_at, is_deleted, ...rest } = doc;
+
+                    return {
+                        id,
+                        updated_at,
+                        deleted: is_deleted,
+                        user_id: userId, // Enforce User ID from session
+                        data: rest
+                    };
+                });
+
+                const { error } = await supabase
+                    .from('trips')
+                    .upsert(rows);
+
+                if (error) {
+                    console.error('Supabase Trips Push Error:', error);
+                    throw error;
+                }
+
+                return [];
+            },
+            batchSize: REPLICATION_SIZE,
+            modifier: (doc) => doc
+        },
+        live: true,
+        waitForLeadership: false,
+        autoStart: true
+    });
+
+    // Realtime Subscription
+    supabase
+        .channel('trips_db_changes')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'trips' },
+            () => {
+                replicationState.reSync();
+            }
+        )
+        .subscribe();
 
     return replicationState;
 };
