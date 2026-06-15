@@ -89,6 +89,7 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   } else {
     content = (
       <TripWorkspace
+        key={selectedTrip.id}
         trip={selectedTrip}
         onBackToTrips={() => setSelectedTripId(null)}
         signOut={signOut}

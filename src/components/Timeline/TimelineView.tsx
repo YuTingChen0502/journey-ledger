@@ -18,19 +18,31 @@ import {
 import { DayColumn } from './DayColumn';
 import { TimelineEvent } from './TimelineEvent';
 // EventDetailView removed (hoisted)
-import { addDays, format, parseISO, differenceInMinutes, addMinutes } from 'date-fns';
+import { addDays, format, parseISO, differenceInMinutes, differenceInDays, addMinutes, isValid } from 'date-fns';
 import { safeParseISO, safeFormatTime } from '@/lib/dateUtils';
 import { Button } from '@/components/ui/button';
 // ScrollArea removed
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { enUS, zhTW } from 'date-fns/locale';
+import type { TripDocType } from '@/db/tripSchema';
 
 
 interface TimelineViewProps {
-    tripId: string;
+    trip: TripDocType;
     onEventClick: (id: string) => void;
 }
+
+// Build the inclusive list of days for a trip from its start/end dates.
+// Defensive against invalid or inverted ranges; capped to keep the UI sane.
+const buildTripDays = (startStr: string, endStr: string): Date[] => {
+    const start = parseISO(startStr);
+    if (!isValid(start)) return [new Date()];
+    const end = parseISO(endStr);
+    const safeEnd = isValid(end) && end >= start ? end : start;
+    const count = Math.min(differenceInDays(safeEnd, start) + 1, 60);
+    return Array.from({ length: Math.max(count, 1) }, (_, i) => addDays(start, i));
+};
 
 const PPM = 2; // Pixels per minute
 const START_HOUR = 6; // 06:00 AM
@@ -59,10 +71,8 @@ function BacklogArea({ children }: { children: React.ReactNode }) {
 
 // import { useAuth } from '@/context/AuthContext';
 
-export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
+export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
     const { t, language } = useTranslation();
-    // const { user } = useAuth();
-    // const userId = user?.id || 'guest'; // Removed for Shared Mode
     const dateLocale = language === 'zh-TW' ? zhTW : enUS;
 
     const collection = useRxCollection<TripEventDocType>('tripevents');
@@ -70,8 +80,7 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
         'tripevents',
         collection => collection.find({
             selector: {
-                trip_id: { $eq: tripId },
-                // owner_id: { $eq: userId }, // REMOVED: Shared Workspace Mode
+                trip_id: { $eq: trip.id },
                 is_deleted: { $eq: false }
             },
             sort: [{ start_time: 'asc' }]
@@ -83,10 +92,8 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
     const [showBacklog, setShowBacklog] = useState(false); // Default collapsed
     const [previewTime, setPreviewTime] = useState<string | null>(null);
 
-    // Date Range: Jan 31 - Feb 7
-    // Use local time constructor to avoid UTC timezone shifts
-    const startDate = new Date(2026, 0, 31); // Jan 31, 2026 00:00:00 Local
-    const days = Array.from({ length: 8 }, (_, i) => addDays(startDate, i));
+    // Date range driven by the selected trip (no hardcoded 2026 window).
+    const days = useMemo(() => buildTripDays(trip.start_date, trip.end_date), [trip.start_date, trip.end_date]);
 
     // Group Events by Day
     const { dayEvents, floatingEvents } = useMemo(() => {
@@ -114,7 +121,7 @@ export function TimelineView({ tripId, onEventClick }: TimelineViewProps) {
         });
 
         return { dayEvents: map, floatingEvents: floating };
-    }, [events]);
+    }, [events, days]);
 
     const sensors = useSensors(
         useSensor(TouchSensor, {

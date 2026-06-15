@@ -35,13 +35,14 @@ type FormData = {
 
 interface EventModalProps {
     userId: string
+    tripId: string
     eventId?: string | null
     isOpen?: boolean
     onOpenChange?: (open: boolean) => void
     defaultDate?: Date
 }
 
-export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChange, defaultDate }: EventModalProps) {
+export function EventModal({ userId, tripId, eventId, isOpen: externalIsOpen, onOpenChange, defaultDate }: EventModalProps) {
     const { t } = useTranslation()
     // Internal state for when used as a trigger-based modal (Create Mode mainly)
     const [internalOpen, setInternalOpen] = useState(false)
@@ -121,7 +122,7 @@ export function EventModal({ userId, eventId, isOpen: externalIsOpen, onOpenChan
                 // CREATE
                 await collection?.insert({
                     id: uuidv4(),
-                    trip_id: 'nagoya-2026',
+                    trip_id: tripId,
                     owner_id: userId,
                     title: DOMPurify.sanitize(data.title),
                     location: DOMPurify.sanitize(data.location),

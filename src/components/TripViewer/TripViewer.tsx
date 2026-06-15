@@ -1,19 +1,32 @@
 import { useMemo, useState } from 'react';
 import { useRxData } from 'rxdb-hooks';
 import type { TripEventDocType } from '@/db/schema';
-import { format, parseISO, addDays } from 'date-fns';
+import type { TripDocType } from '@/db/tripSchema';
+import { format, parseISO, addDays, differenceInDays, isValid } from 'date-fns';
 import { MapPin, Info, Cloud, Sun, CloudRain, Snowflake } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import DOMPurify from 'dompurify';
 
 interface TripViewerProps {
-    tripId: string;
+    trip: TripDocType;
     onEventClick: (id: string) => void;
 }
 
-// Mock Weather Data for Nagoya (Jan 31 - Feb 7)
-// Using Muted Palette as requested: Amber-600/80 (Sun), Slate-500 (Cloud), Indigo-900/70 (Rain), Slate-400 (Snow)
+// Build the inclusive list of days for a trip from its start/end dates.
+// Defensive against invalid or inverted ranges; capped to keep the UI sane.
+const buildTripDays = (startStr: string, endStr: string): Date[] => {
+    const start = parseISO(startStr);
+    if (!isValid(start)) return [new Date()];
+    const end = parseISO(endStr);
+    const safeEnd = isValid(end) && end >= start ? end : start;
+    const count = Math.min(differenceInDays(safeEnd, start) + 1, 60);
+    return Array.from({ length: Math.max(count, 1) }, (_, i) => addDays(start, i));
+};
+
+// NOTE (Phase 4): mock weather keyed by the legacy Nagoya 2026 dates. Harmless
+// for other trips — unknown dates simply render "--". Real per-trip weather is
+// out of scope here; do not treat this as trip data.
 const WEATHER_FORECAST: Record<string, { temp: string; condition: string; icon: React.ElementType; colorClass: string }> = {
     '2026-01-31': { temp: '6°C', condition: 'Cloudy', icon: Cloud, colorClass: 'text-slate-500' },
     '2026-02-01': { temp: '9°C', condition: 'Sunny', icon: Sun, colorClass: 'text-amber-600/80' },
@@ -27,58 +40,57 @@ const WEATHER_FORECAST: Record<string, { temp: string; condition: string; icon: 
 
 // import { useAuth } from '@/context/AuthContext';
 
-export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
-    // const { user } = useAuth();
-    // const userId = user?.id || 'guest';
+export function TripViewer({ trip, onEventClick }: TripViewerProps) {
     const { result: events } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
             selector: {
-                trip_id: { $eq: tripId },
-                // owner_id: { $eq: userId }, // REMOVED: Shared Workspace Mode
+                trip_id: { $eq: trip.id },
                 is_deleted: { $eq: false },
-                is_floating: { $eq: false }, // Only scheduled events in Viewer? Or show floating at bottom?
-                // For Vertical Timeline, usually only timed events fit well unless we have a section.
-                // Let's stick to Scheduled for the main timeline.
+                is_floating: { $eq: false }, // Scheduled events only in the journal view
             },
             sort: [{ start_time: 'asc' }]
         })
     );
 
-    // Grouping
-    // Grouping
+    // Build days from the selected trip's date range (no hardcoded 2026 window).
     const { days } = useMemo(() => {
-        const scheduled: TripEventDocType[] = [];
-
-        events.forEach(e => {
-            if (e.start_time) scheduled.push(e);
+        const dayMap = new Map<string, TripEventDocType[]>();
+        buildTripDays(trip.start_date, trip.end_date).forEach(date => {
+            dayMap.set(format(date, 'yyyy-MM-dd'), []);
         });
 
-        const start = new Date(2026, 0, 31); // Jan 31, 2026 (Saturday)
-
-        const dayMap = new Map<string, TripEventDocType[]>();
-        const totalDays = 8; // Jan 31 to Feb 7
-
-        for (let i = 0; i < totalDays; i++) {
-            const date = addDays(start, i);
-            dayMap.set(format(date, 'yyyy-MM-dd'), []);
-        }
-
-        scheduled.forEach(e => {
-            const k = format(parseISO(e.start_time!), 'yyyy-MM-dd');
+        events.forEach(e => {
+            if (!e.start_time) return;
+            const date = parseISO(e.start_time);
+            if (!isValid(date)) return;
+            const k = format(date, 'yyyy-MM-dd');
             if (dayMap.has(k)) {
                 dayMap.get(k)?.push(e);
             }
+            // Events outside the trip range are intentionally not shown on a day.
         });
 
         return { days: Array.from(dayMap.entries()) };
-    }, [events]);
+    }, [events, trip.start_date, trip.end_date]);
 
-    // State for Tabbed View
-    const [selectedDay, setSelectedDay] = useState<string>('2026-01-31');
+    // State for Tabbed View — default to the trip's first day.
+    const [selectedDay, setSelectedDay] = useState<string>(() => format(buildTripDays(trip.start_date, trip.end_date)[0], 'yyyy-MM-dd'));
 
-    // Weather Logic
-    const currentWeather = WEATHER_FORECAST[selectedDay] || { temp: '--', condition: '', icon: Cloud, colorClass: 'text-slate-500' };
+    // Derive the effective day during render: if the stored selection is not in
+    // the current trip's days (e.g. after switching trips), fall back to day 1.
+    // (Avoids a setState-in-effect.)
+    const effectiveDay = days.some(([d]) => d === selectedDay) ? selectedDay : (days[0]?.[0] ?? selectedDay);
+
+    const tripDateRange = useMemo(() => {
+        const list = buildTripDays(trip.start_date, trip.end_date);
+        const first = list[0];
+        const last = list[list.length - 1];
+        return `${format(first, 'MMM d')} — ${format(last, 'MMM d')}`;
+    }, [trip.start_date, trip.end_date]);
+
+    // Weather Logic (mock; see WEATHER_FORECAST note)
+    const currentWeather = WEATHER_FORECAST[effectiveDay] || { temp: '--', condition: '', icon: Cloud, colorClass: 'text-slate-500' };
     const WeatherIcon = currentWeather.icon;
 
     return (
@@ -86,8 +98,8 @@ export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
             {/* Header: Dates & Weather */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur z-20 sticky top-0">
                 <div>
-                    <h1 className="text-3xl font-serif text-primary">Nagoya 2026</h1>
-                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">Jan 31 — Feb 07</p>
+                    <h1 className="text-3xl font-serif text-primary">{trip.title}</h1>
+                    <p className="text-sm text-muted-foreground font-medium uppercase tracking-widest mt-1">{tripDateRange}</p>
                 </div>
                 {/* Weather Widget: Refined Muted Palette */}
                 <div className="flex items-center gap-1.5 bg-muted/40 px-3 py-1.5 rounded-full backdrop-blur-sm border border-border/20">
@@ -104,7 +116,7 @@ export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
                             const date = parseISO(dateStr);
                             const label = `Day ${index + 1}`;
                             const sub = format(date, 'MMM d');
-                            const isActive = selectedDay === dateStr;
+                            const isActive = effectiveDay === dateStr;
 
                             return (
                                 <button
@@ -129,7 +141,7 @@ export function TripViewer({ tripId, onEventClick }: TripViewerProps) {
             {/* Single Day Content */}
             <div className="flex-1 overflow-y-auto px-6 py-8 pb-32">
                 {(() => {
-                    const currentDayData = days.find(d => d[0] === selectedDay);
+                    const currentDayData = days.find(d => d[0] === effectiveDay);
                     if (!currentDayData) return null;
                     const [dateStr, dayEvents] = currentDayData;
                     const date = parseISO(dateStr);

@@ -38,18 +38,18 @@ import { useTranslation } from '@/hooks/useTranslation'
 
 // import { useAuth } from '@/context/AuthContext';
 
-export function TripTable({ onEdit }: { onEdit?: (id: string) => void }) {
+export function TripTable({ tripId, onEdit }: { tripId: string; onEdit?: (id: string) => void }) {
     const { t } = useTranslation()
-    // const { user } = useAuth()
-    // const userId = user?.id || 'guest'
 
     const collection = useRxCollection<TripEventDocType>('tripevents');
+    // Phase 4: scoped to the selected trip. `data` drives Delete All, so batch
+    // delete only ever touches the current trip's events.
     const { result: data, isFetching } = useRxData<TripEventDocType>(
         'tripevents',
         collection => collection.find({
             selector: {
+                trip_id: { $eq: tripId },
                 is_deleted: { $eq: false },
-                // owner_id: { $eq: userId } // REMOVED: Shared Workspace Mode
             },
             sort: [{ updated_at: 'desc' }]
         })

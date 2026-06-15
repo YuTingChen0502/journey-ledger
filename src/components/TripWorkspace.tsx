@@ -10,6 +10,7 @@ import { EventModal } from './EventModal'
 import { EventDetailView } from './Timeline/EventDetailView'
 import { ErrorBoundary } from './ErrorBoundary'
 import { Plus, LogOut, Home, BookOpen, Map } from 'lucide-react'
+import { parseISO, isValid } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { TripDocType } from '@/db/tripSchema'
@@ -34,16 +35,10 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
     const [detailViewOpen, setDetailViewOpen] = useState(false)
 
-    // PHASE 4 TODO: the inner data views below are still scoped to the legacy
-    // Nagoya trip. `TRIP_ID` (events read scope + import + create) must be
-    // replaced with `trip.id`, and the hardcoded Timeline/Viewer date ranges
-    // must be derived from `trip.start_date` / `trip.end_date`.
-    //   - TripViewer:   tripId={TRIP_ID}      (also hardcodes 2026 dates/weather/title)
-    //   - TimelineView: tripId={TRIP_ID}      (also hardcodes the 2026-01-31 +8d window)
-    //   - TripTable:    not trip-scoped at all (queries all events)
-    //   - ImportModal:  tripId={TRIP_ID}      (new imports attach to legacy trip)
-    //   - EventModal:   hardcodes trip_id 'nagoya-2026' on create
-    const TRIP_ID = 'nagoya-2026'
+    // Phase 4: the workspace is now fully scoped to the selected trip via
+    // `trip.id`. New events / imports default to the trip's first day.
+    const tripStart = parseISO(trip.start_date)
+    const defaultEventDate = isValid(tripStart) ? tripStart : new Date()
 
     const handleCreateEvent = () => {
         setSelectedEventId(null)
@@ -107,8 +102,10 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
                     </Button>
                 )}
                 <ImportModal
-                    tripId={TRIP_ID}
-                    userId={"current-user"} // Handled by ImportModal internally via useAuth
+                    tripId={trip.id}
+                    tripStartDate={trip.start_date}
+                    tripEndDate={trip.end_date}
+                    defaultDate={defaultEventDate}
                     onImportSuccess={() => {
                         setMode('planning')
                         setPlanningView('table')
@@ -174,20 +171,21 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
                             }
                         }} />}
 
-                        {mode === 'overview' && <TripViewer tripId={TRIP_ID} onEventClick={handleEventClick} />}
+                        {mode === 'overview' && <TripViewer trip={trip} onEventClick={handleEventClick} />}
 
-                        {mode === 'planning' && planningView === 'timeline' && <TimelineView tripId={TRIP_ID} onEventClick={handleEventClick} />}
-                        {mode === 'planning' && planningView === 'table' && <TripTable onEdit={handleEditEvent} />}
+                        {mode === 'planning' && planningView === 'timeline' && <TimelineView trip={trip} onEventClick={handleEventClick} />}
+                        {mode === 'planning' && planningView === 'table' && <TripTable tripId={trip.id} onEdit={handleEditEvent} />}
                     </ErrorBoundary>
                 </div>
             </ResponsiveLayout>
 
             <EventModal
                 userId={session?.user?.id || 'guest'}
+                tripId={trip.id}
                 eventId={selectedEventId}
                 isOpen={eventModalOpen}
                 onOpenChange={setEventModalOpen}
-                defaultDate={new Date()}
+                defaultDate={defaultEventDate}
             />
 
             <EventDetailView

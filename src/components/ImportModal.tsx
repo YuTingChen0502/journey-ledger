@@ -23,12 +23,14 @@ interface ImportModalProps {
     children?: React.ReactNode;
     defaultDate?: Date;
     tripId: string; // We need to know which trip to add to
+    tripStartDate?: string; // YYYY-MM-DD — used to keep imports within the trip range
+    tripEndDate?: string;   // YYYY-MM-DD
     // userId: string; // Removed, use context
     onImportSuccess?: () => void;
     userId?: string; // Optional for compatibility if passed, but ignored in favor of context
 }
 
-export function ImportModal({ children, defaultDate = new Date(), tripId, onImportSuccess }: ImportModalProps) {
+export function ImportModal({ children, defaultDate = new Date(), tripId, tripStartDate, tripEndDate, onImportSuccess }: ImportModalProps) {
     const { user } = useAuth();
     const userId = user?.id || 'guest';
     const { t } = useTranslation();
@@ -89,11 +91,22 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, onImpo
 
                 if (dateString && c.parsedData.time) {
                     try {
-                        const [hours, minutes] = c.parsedData.time.split(':').map(Number);
-                        const date = new Date(dateString);
-                        date.setHours(hours, minutes, 0, 0);
-                        startTime = date.toISOString();
-                        isFloating = false;
+                        // Phase 4: keep imports inside the selected trip's range. A
+                        // scheduled date outside [tripStartDate, tripEndDate] is sent
+                        // to the backlog (floating) instead of landing on a wrong day.
+                        const inRange =
+                            !tripStartDate || !tripEndDate ||
+                            (dateString >= tripStartDate && dateString <= tripEndDate);
+
+                        if (inRange) {
+                            const [hours, minutes] = c.parsedData.time.split(':').map(Number);
+                            const date = new Date(dateString);
+                            date.setHours(hours, minutes, 0, 0);
+                            startTime = date.toISOString();
+                            isFloating = false;
+                        } else {
+                            isFloating = true;
+                        }
                     } catch (e) {
                         console.error("Date parsing error", e);
                         // Fallback to floating if date parse fails

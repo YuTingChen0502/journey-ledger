@@ -61,7 +61,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 
 ## Phase Status
 
-Current phase: Phase 4 — remove Nagoya hardcoding / trip-scoped, date-driven views
+Current phase: Phase 5 — UI/UX rebrand and remove photo UI
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -85,18 +85,29 @@ Completed:
   - **Flow:** Auth → TripLibrary → TripWorkspace(selectedTrip). Workspace mounts fresh per selection; back button unmounts it. selectedTrip resolved reactively (shows a loading state while resolving).
   - **Behavior:** legacy Nagoya trip renders Journal/Overview + Planning Timeline exactly as before. Inner data views remain legacy-scoped (see risks).
   - Build/lint/test result: build passed; new/changed files (`App.tsx`, `TripWorkspace.tsx`, `TripDashboard.tsx`) lint clean; legacy debt elsewhere unchanged; no test script.
+- **Phase 4 — trip-scoped, date-driven views.** Removed the active `nagoya-2026` runtime dependency; the workspace is now fully scoped to the selected trip.
+  - `TripWorkspace.tsx` — deleted the `TRIP_ID` constant; threads `trip`/`trip.id` into all five children; new events/imports default to the trip's first day; `key={trip.id}` on the workspace in `App.tsx` forces a clean remount per trip (no stale cross-trip data).
+  - `TripViewer.tsx` — queries `trip.id`; days built from `trip.start_date`→`trip.end_date` (`buildTripDays`, 1–60 days safe); header shows `trip.title` + derived range; selected day derived during render (no setState-in-effect). Mock weather kept but harmless/documented (keyed to legacy 2026 dates; unknown → "--").
+  - `TimelineView.tsx` — queries `trip.id`; days from the trip range; drag/drop/resize and floating/backlog preserved (writes stay within the trip's own events).
+  - `TripTable.tsx` — now requires `tripId`; query scoped by `trip_id`; **Delete All operates on the scoped result → selected-trip-only**.
+  - `EventModal.tsx` — requires `tripId`; creates with `trip_id: tripId` (no more hardcoded `nagoya-2026`).
+  - `ImportModal.tsx` — already inserted with `trip_id: tripId`; now also takes the trip range and routes out-of-range scheduled imports to the backlog (floating).
+  - `EventDetailView.tsx` — unchanged; edits by event id, and ids only ever come from trip-scoped parent queries, so there is no cross-trip edit path.
+  - Behavior: selecting Nagoya shows the legacy events/dates exactly as before; a new trip shows empty Journal/Timeline/Table until its own events are added; all writes attach to the selected trip.
+  - Build/lint/test result: build passed; touched files introduce no new lint errors (pre-existing `any` in ImportModal/TripTable catch blocks and the EventModal `setOpen` warning remain as legacy debt); no test script.
 
 In progress:
-- Phase 4 — remove Nagoya hardcoding / trip-scoped, date-driven views
+- Phase 5 — UI/UX rebrand and remove photo UI
 
 Next:
-- Phase 5 — UI/UX rebrand and remove photo UI
+- Phase 6 — quota, tests, RLS documentation, release cleanup
 
 ## Architecture Changes (running log)
 
 - **Phase 1:** Second RxDB collection `trips` alongside `tripevents`. Independent Supabase replication channel (`trips_db_changes`, identifier `supabase-jsonb-trips-v1`). Trips replication failures are isolated from events replication. Legacy trip bootstrap runs once per load (no-op if the trip already exists locally).
 - **Phase 2:** Trip-selection gate in `AppContent` (`selectedTripId` state). New `src/components/Trips/` module (TripLibrary / TripCard / CreateTripModal). TripLibrary is the post-auth landing; the legacy single-trip workspace renders only after a trip is selected. Workspace internals remain legacy-scoped (`TRIP_ID = 'nagoya-2026'`) — selection is an entry point, not yet a data scope. `selectedTripId` is in-memory only (not persisted across reloads).
 - **Phase 3:** Workspace extracted from `App.tsx` into `src/components/TripWorkspace.tsx`, which takes the resolved `trip` object. `App.tsx` is now a thin router (AppShell → AppContent → TripLibrary | TripWorkspace). TripDashboard displays the selected trip's identity. The legacy `TRIP_ID = 'nagoya-2026'` is now isolated in ONE place (`TripWorkspace`) with an explicit Phase 4 TODO block listing every inner view that still depends on it.
+- **Phase 4:** All core event views/writes are trip-scoped via `trip.id`, and day ranges are derived from `trip.start_date`/`trip.end_date`. The active `nagoya-2026` constant is gone; `nagoya-2026` now only persists as the legacy seed trip's id + its events' `trip_id`. Scoping is enforced at the RxDB query level (`trip_id` selector) in TripViewer/TimelineView/TripTable, at the write level in EventModal/ImportModal (`trip_id: tripId`), and structurally by `key={trip.id}` remounting the workspace. EventDetailView remains id-based but is only fed trip-scoped ids.
 
 ## Known Risks (running log)
 
@@ -118,6 +129,16 @@ Next:
   - Net effect: selecting a non-legacy trip shows the correct title/dates on the dashboard but legacy Nagoya data + writes in the inner views. Phase 4 must thread `trip.id` + `trip.start_date`/`trip.end_date` through all of the above.
   - `selectedTripId` still not persisted; `TripWorkspace` remounts per selection (workspace mode resets to dashboard). Acceptable.
   - If a selected trip id resolves to no document (e.g. deleted mid-session), AppContent shows a perpetual "Loading trip…" state. Low risk (selection comes from the live list).
+- **Phase 4 — remaining hardcodes / risks:**
+  - Mock weather in `TripViewer` is still keyed to the legacy 2026 Nagoya dates. It is harmless (unknown dates render "--") but is NOT real per-trip weather. Replace or remove in a later phase.
+  - Remaining `nagoya-2026` references are demo/legacy only: the seed trip id + its events, and Phase 5 UI copy in `src/i18n/translations.ts`, `LandingPage.tsx`, `SettingsContext.tsx` storage keys, `docs/*`, and Nagoya-themed `public/` assets. None drive active data routing.
+  - `EventDetailView` edits by event id without re-checking `trip_id`. Safe today (ids come only from trip-scoped parent queries) but would become a cross-trip risk if a future component passes an arbitrary id — keep this invariant in mind.
+  - Out-of-range imported events fall into the backlog (floating). They are NOT lost, but there is no explicit "outside trip dates" UI section yet.
+  - Photo/base64 image UI still present (Phase 5).
+- **Trip edit / delete / archive — KNOWN PRODUCT LIMITATION (deferred):**
+  - Trips can be **created and selected, but not edited, deleted, or archived** yet. There is intentionally no trip edit/delete/archive UI as of Phase 4.
+  - Selected-trip recovery is incomplete: if a trip is removed externally (e.g. another device, or direct DB edit) while selected, `AppContent` can sit on "Loading trip…". No graceful fallback to TripLibrary yet.
+  - Trip edit/delete (and robust recovery for a missing selected trip) should be handled in a **later small phase after Phase 4 data scoping is stable** — not folded into the Phase 5 visual rebrand.
 
 ## Update Policy
 
