@@ -12,10 +12,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
-import { getPasswordResetRedirectUrl, isValidEmailAddress } from '@/lib/authRecovery'
-
-import { removeRxDatabase } from 'rxdb'
-import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie'
+import { describeResetEmailError, describeSignUpError, getPasswordResetRedirectUrl, isValidEmailAddress } from '@/lib/authRecovery'
 
 type PendingAction = 'login' | 'signup' | null
 
@@ -31,26 +28,15 @@ export function Auth() {
 
     const busy = pending !== null
 
-    // Clean Room Protocol:
-    // Wipes the local database to ensure no Ghost Data persists from previous "guest" sessions
-    // or from other users on the same device.
-    const cleanRoom = async () => {
-        try {
-            console.log('Clean Room Protocol Initiated...')
-            const storage = getRxStorageDexie()
-            await removeRxDatabase('tripdb', storage)
-            console.log('Clean Room Complete: Local DB Wiped.')
-        } catch (err) {
-            console.warn('Clean Room Warning (Safe to ignore if DB was empty):', err)
-        }
-    }
-
     const handleLogin = async (e: React.MouseEvent | React.FormEvent) => {
         e.preventDefault()
         if (busy) return // guard against double-submit
         setPending('login')
         try {
-            // 1. Authenticate with Supabase first
+            // Do not wipe RxDB here. Supabase emits SIGNED_IN immediately, and
+            // App may already be initializing the local DB/replication. A future
+            // safe user-switch reset should close the DB before auth handoff,
+            // remove storage, then reload before any new initDB() starts.
             const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
@@ -58,10 +44,6 @@ export function Auth() {
 
             if (error) {
                 alert(error.message)
-            } else {
-                // 2. SUCCESS! Wipe the local DB now so the app mounts with a fresh
-                // empty DB and replication repopulates only this user's data.
-                await cleanRoom()
             }
         } finally {
             setPending(null)
@@ -79,7 +61,7 @@ export function Auth() {
             })
 
             if (error) {
-                alert(error.message)
+                alert(describeSignUpError(error))
             } else if (data.user && data.user.identities && data.user.identities.length === 0) {
                 // Supabase returns a user with no identities when the email is
                 // already registered (to avoid leaking which emails exist).
@@ -119,7 +101,10 @@ export function Auth() {
             })
 
             if (error) {
-                setForgotError(error.message || 'Could not send a reset email. Please try again.')
+                // Friendly mapping for rate-limit / network errors (the built-in
+                // email provider has a very low send limit). We never try to
+                // bypass the limit here.
+                setForgotError(describeResetEmailError(error))
                 return
             }
 

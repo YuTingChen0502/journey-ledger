@@ -1,5 +1,5 @@
 export const TRIP_EVENT_SCHEMA = {
-    version: 3,
+    version: 4,
     primaryKey: 'id',
     type: 'object',
     properties: {
@@ -69,6 +69,12 @@ export const TRIP_EVENT_SCHEMA = {
         is_deleted: {
             type: 'boolean'
         },
+        workspace_type: {
+            type: 'string'
+        },
+        workspace_id: {
+            type: 'string'
+        },
         memo: {
             type: 'string'
         },
@@ -118,6 +124,8 @@ export type TripEventDocType = {
     created_at: number;
     updated_at: number;
     is_deleted: boolean;
+    workspace_type?: 'personal' | 'group';
+    workspace_id?: string;
     memo?: string;
     todos?: TodoItem[];
 };

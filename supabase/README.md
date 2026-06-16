@@ -1,130 +1,135 @@
 # Supabase Setup
 
-This folder holds SQL you must apply manually to your Supabase project (the app
-cannot create tables itself).
+This folder holds SQL you must apply manually to your Supabase project. The app cannot create tables or policies itself.
 
-## Which file do I run?
+## Which File Do I Run?
 
 | Scenario | Run this |
 |----------|----------|
-| **Brand-new / fresh Supabase project** | `bootstrap.sql` — provisions everything (`trip_events` + `trips` + `groups` + `group_members` + `group_invites`, helpers, the join RPC, indexes, RLS, realtime) in one idempotent script. |
-| **Existing project that already has `trip_events`** (legacy Nagoya setup) | `migrations/20260615_create_trips.sql` — adds the `trips` table. |
-| **Existing project that needs group workspaces (Phase 12B)** | `migrations/20260616_create_groups.sql` — adds the `groups` table. |
-| **Existing project enabling group membership + invites (Phase 12C)** | `migrations/20260617_group_members_invites.sql` — adds `group_members` + `group_invites`, the `join_group_by_invite_code` RPC, the owner-membership trigger, and **widens the `groups` SELECT policy to owner-OR-member**. |
+| Brand-new / fresh Supabase project | `bootstrap.sql` provisions everything in one idempotent script. |
+| Existing project that already has `trip_events` | `migrations/20260615_create_trips.sql` adds the `trips` table. |
+| Existing project that needs group workspaces (Phase 12B) | `migrations/20260616_create_groups.sql` adds the `groups` table. |
+| Existing project enabling group membership + invites (Phase 12C) | `migrations/20260617_group_members_invites.sql` adds `group_members`, `group_invites`, the join RPC, owner membership trigger, and group visibility RLS. |
+| Existing project enabling group trip/event sharing (Phase 12D) | `migrations/20260618_group_trip_event_sharing.sql` adds shared trip/event RLS, ownership-safe sync RPCs, and hydration indexes. |
+| Existing project — Phase 12D collaboration fix (REQUIRED) | `migrations/20260618_group_member_collaboration_fix.sql` makes group trip management member-based (`can_manage_trip_row`). Without it, owner→member trip sharing is asymmetric (members stall). |
 
-> ⚠️ **Phase 12C manual action:** run `migrations/20260617_group_members_invites.sql` (or the updated `bootstrap.sql`) in the Supabase SQL Editor **before testing invite-code joining across accounts**. Until applied, group creation still works locally but joins will fail and joined groups won't appear.
+**Phase 12D manual action:** run `migrations/20260618_group_trip_event_sharing.sql` **and** `migrations/20260618_group_member_collaboration_fix.sql` (or the updated `bootstrap.sql`, which already includes both) in the Supabase SQL Editor before testing cross-account group trip/event sharing. Until applied, joined groups can appear but their trips/events remain owner-scoped, and group trip sharing is asymmetric until the collaboration fix is applied.
 
-Both scripts are idempotent and safe to re-run.
+All scripts are idempotent and safe to re-run.
 
-## How to apply
+## How To Apply
 
-1. Open your Supabase project → **SQL Editor** → New query.
-2. Paste the contents of the chosen file and **Run**.
-3. Verify the tables exist with RLS enabled (Table Editor / Authentication → Policies).
+1. Open your Supabase project, then open SQL Editor, then New query.
+2. Paste the contents of the chosen file and Run.
+3. Verify the tables exist with RLS enabled under Table Editor / Authentication Policies.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `bootstrap.sql` | Full bootstrap for a fresh project: `trip_events` + `trips` + `groups` tables, indexes, RLS policies, realtime publication. |
-| `migrations/20260615_create_trips.sql` | Phase 1 incremental: `trips` table only (for projects that already had `trip_events`). |
-| `migrations/20260616_create_groups.sql` | Phase 12B incremental: `groups` table only. **Owner-scoped RLS** (superseded by Phase 12C, which widens group visibility to members). |
-| `migrations/20260617_group_members_invites.sql` | Phase 12C incremental: `group_members` + `group_invites` tables, `is_group_member` / `is_group_owner` helpers, owner-membership trigger, `join_group_by_invite_code` RPC, and the widened `groups` SELECT policy. **Membership + group visibility only — group trips/events remain owner-scoped (Phase 12D).** |
+| `bootstrap.sql` | Full bootstrap for a fresh project: mirror tables, group membership/invites, sync RPCs, indexes, RLS policies, and realtime publication. |
+| `migrations/20260615_create_trips.sql` | Phase 1 incremental: `trips` table only. |
+| `migrations/20260616_create_groups.sql` | Phase 12B incremental: `groups` table only. Superseded by Phase 12C group visibility policies. |
+| `migrations/20260617_group_members_invites.sql` | Phase 12C incremental: membership, invites, owner trigger, and `join_group_by_invite_code`. |
+| `migrations/20260618_group_trip_event_sharing.sql` | Phase 12D incremental: member-aware `trips` / `trip_events` SELECT policies, RPC-only writes through `sync_trip_documents` / `sync_trip_event_documents`, ownership preservation on update, and indexes for group workspace hydration. |
+| `migrations/20260618_group_member_collaboration_fix.sql` | Phase 12D fix: `can_manage_trip_row` becomes member-based so group trip create/edit (and the member-side hydration push-back) work for any active member, not just the owner. Required follow-up to the sharing migration. |
+| `dev_reset.sql` | **DEV-ONLY** content wipe for restarting manual testing. Deletes all trip/event/group rows (not auth users). **Never run on production.** Not a migration. See [`../docs/DEV_RESET.md`](../docs/DEV_RESET.md). |
 
-### Group membership & invites (Phase 12C)
+## Group edit / delete (Phase 12D.1)
 
-- **Visibility:** the `groups` SELECT policy is **owner OR active member** (`is_group_member`). A user sees a group once they own it or have an active `group_members` row for it.
-- **Membership writes are server-only:** the creator's `owner` membership is created by an `AFTER INSERT` trigger on `groups`; non-owners join **only** through the SECURITY DEFINER RPC `join_group_by_invite_code(invite_code text)`. There is **no** client INSERT/UPDATE/DELETE policy on `group_members`.
-- **Invite codes:** owner-managed rows in `group_invites` (owner-only SELECT/INSERT/UPDATE). The owner's client generates a short code and inserts it; ordinary users can never list codes, only redeem one via the RPC.
-- **Local-first split:** owned groups still sync via RxDB (offline-capable). **Joined** groups are read **online** (`src/services/groups.ts` → `fetchVisibleGroups`) because a member can't push a group they don't own without an ownership conflict — the RxDB `groups` pull is explicitly filtered to `user_id = auth.uid()`.
-- **Still deferred to Phase 12D:** cross-user **group trip/event** sharing. `trip_events` / `trips` RLS is unchanged and remains owner-scoped, so a joined member sees only their own (currently empty) trips for that group.
+Editing a group's name/description and **soft-deleting** a group are
+**owner-only** and need **no migration**: the `groups` table already enforces
+owner-only INSERT/UPDATE RLS (`auth.uid() = user_id`), and owned groups sync via
+the local-first RxDB `groups` collection. Soft-delete sets `deleted = true`;
+member-visibility queries filter `deleted = false`, so the group disappears for
+all members. Group **trips/events are not cascade-deleted** and their RLS is
+unchanged. Non-owner members can still collaborate on group trips/events (Phase
+12D) but cannot edit/delete the group document itself.
 
-## Sync contract
+## Group Membership & Invites
 
-Both tables share the same local-first + JSONB shape used by RxDB replication
-(see `src/db/replication.ts`):
+- Group visibility is owner OR active member via `is_group_member`.
+- Membership writes are server-only: creator membership is created by the `groups` insert trigger; non-owners join only through `join_group_by_invite_code(invite_code text)`.
+- Invite codes are owner-managed rows in `group_invites`; ordinary users redeem a code through the RPC and cannot list invite codes.
+- Owned groups still sync via RxDB. Joined groups are fetched online through `src/services/groups.ts` because they are intentionally not pulled into the owner-scoped `groups` local collection.
+
+## Group Trip/Event Sharing
+
+- Personal trips/events stay private to their creator.
+- Group trips are visible to active group members when `data.workspace_type = 'group'` and `data.workspace_id` is a group id they belong to.
+- Events are authorized from their parent trip (`data.trip_id`); event workspace fields are denormalized metadata, not the source of truth.
+- Active group members can create/edit events in shared group trips.
+- Trip metadata edit/delete is conservative: the trip owner or group owner can update trip rows through the sync RPC.
+- Direct `INSERT`/`UPDATE` policies on `trips` and `trip_events` are intentionally false. Client replication writes through `sync_trip_documents(jsonb)` and `sync_trip_event_documents(jsonb)`.
+- On insert, sync RPCs set top-level `user_id = auth.uid()` and JSON `data.owner_id = auth.uid()`.
+- On update, sync RPCs preserve existing top-level `user_id`, JSON `data.owner_id`, trip workspace identity, and event parent `trip_id`.
+- When a group workspace opens, the app hydrates visible group trips and their events by workspace/trip id so rows older than the user's replication checkpoint are backfilled without leaking unrelated data.
+
+## Sync Contract
+
+The mirror tables use the same local-first + JSONB shape used by RxDB replication:
 
 | Column | Type | Meaning |
 |--------|------|---------|
-| `id` | text (PK) | RxDB document id |
-| `updated_at` | bigint | epoch **milliseconds**; replication pull checkpoint |
+| `id` | text primary key | RxDB document id |
+| `updated_at` | bigint | epoch milliseconds; replication pull checkpoint |
 | `deleted` | boolean | soft-delete flag |
-| `user_id` | uuid | owner; must equal `auth.uid()` |
+| `user_id` | uuid | creator/owner; set on insert and preserved on update |
 | `data` | jsonb | all remaining document fields |
 
-## Required tables & columns
+## Required Tables & Columns
 
-Both `trip_events` and `trips` MUST exist with exactly these columns (the RxDB
-replication handlers in `src/db/replication.ts` depend on this shape):
+`trip_events`, `trips`, and `groups` must exist with the 5 mirror columns above. `group_members` and `group_invites` are normal relational auth/security tables created by the Phase 12C migration or `bootstrap.sql`.
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | text (PK) | RxDB document id |
-| `updated_at` | bigint | epoch **milliseconds**; replication pull checkpoint |
-| `deleted` | boolean | soft-delete flag (maps to local `is_deleted`) |
-| `user_id` | uuid | owner; references `auth.users(id)`; must equal `auth.uid()` |
-| `data` | jsonb | all remaining document fields |
+## RLS Policy Expectations
 
-## RLS policy expectations (both tables)
+RLS must be enabled on all tables.
 
-RLS MUST be enabled on both tables, with policies scoped to the authenticated user:
+- `trips` SELECT: personal owner OR active member of the row's group.
+- `trip_events` SELECT: row owner OR active member of the parent trip's group.
+- `trips` / `trip_events` direct INSERT/UPDATE: blocked; use sync RPCs.
+- `groups` SELECT: owner OR active member.
+- `groups` INSERT/UPDATE: owner only.
+- `group_members`: SELECT own membership rows, or as owner all members of your group; no direct client writes.
+- `group_invites`: owner-only select/insert/update; ordinary users join through the RPC.
+- Hard DELETE is intentionally not exposed. The app uses soft-delete via `deleted = true`.
 
-- **SELECT** — a user can read only their own rows (`auth.uid() = user_id`).
-- **INSERT** — a user can insert only rows they own (`with check (auth.uid() = user_id)`).
-- **UPDATE** — a user can update only their own rows (`using` + `with check` on `auth.uid() = user_id`).
-- **Soft delete** is performed as an UPDATE that sets `deleted = true` — covered by the UPDATE policy.
-- **Hard `DELETE` is intentionally NOT exposed** (no DELETE policy is granted). Rows are never physically removed by the app.
+## Realtime Publication Expectations
 
-## Realtime publication expectations
+`trip_events`, `trips`, and `groups` must belong to the `supabase_realtime` publication so the client's `postgres_changes` subscriptions can trigger replication re-syncs. `bootstrap.sql` adds them idempotently.
 
-Both tables must belong to the `supabase_realtime` publication so the client's
-`postgres_changes` subscriptions (`trip_events_db_changes`, `trips_db_changes`)
-fire. `bootstrap.sql` adds them idempotently.
+## API Keys / Secrets
 
-## API keys / secrets
+- The client uses the anon / publishable key only (`VITE_SUPABASE_ANON_KEY` in `.env.local`).
+- Never place the `service_role` / secret key in `.env.local` or any client-bundled env; it bypasses RLS and would be shipped to the browser.
+- `.env.local` must not be committed.
+- Frontend quotas are UX guards only. Authoritative quota enforcement remains future backend work.
 
-- The client uses the **anon / publishable** key only (`VITE_SUPABASE_ANON_KEY` in `.env.local`).
-- **NEVER** place the `service_role` / secret key in `.env.local` or any client-bundled env — it bypasses RLS and would be shipped to the browser.
-- `.env.local` must not be committed (see repo `.gitignore`).
-- All client-side quota limits (see `src/lib/quotas.ts`) are a **UX guard only**, not a security boundary. Authoritative quota/row-ownership enforcement is RLS (ownership) plus future backend checks (per-user/per-trip counts) — see CLAUDE.md "recommended next small phases".
+## Auth Email Sending
 
-## Verifying after setup
+- Supabase's built-in email provider is for testing only and can rate-limit both signup confirmation and forgot-password emails.
+- The app maps Supabase email rate-limit errors, including HTTP 429, to: `Too many emails were requested. Please wait about an hour and try again.`
+- Production projects should configure Custom SMTP in the Supabase Dashboard under Authentication / Emails / SMTP Settings.
+- After Custom SMTP is configured, adjust the relevant Auth Rate Limits in the Supabase Dashboard to values your provider supports.
+- Redirect URLs for `/reset-password` still need to be configured; see [`../docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md).
+- Do not put SMTP credentials, service-role keys, or Supabase Management API calls in the frontend.
 
-After running the SQL:
+## Verifying After Setup
 
-1. **Table Editor** → confirm `public.trip_events` and `public.trips` exist with the 5 columns above.
-2. **Authentication → Policies** → confirm RLS is **enabled** and each table has SELECT / INSERT / UPDATE policies (no DELETE policy).
-3. **Database → Publications → `supabase_realtime`** → confirm both tables are included.
-4. Smoke test from the app: sign in, create a trip, add an event, reload — data should persist and (on a second device) sync.
+1. Confirm `public.trip_events`, `public.trips`, and `public.groups` exist with the mirror columns.
+2. Confirm `group_members` and `group_invites` exist after Phase 12C.
+3. Confirm RLS is enabled and the policies match the expectations above.
+4. Confirm `trip_events`, `trips`, and `groups` are in `supabase_realtime`.
+5. Run the two-account group sharing smoke test from `docs/DEPLOYMENT.md`.
 
-## Backend quota enforcement (future work — design note)
+## Backend Quota Enforcement
 
-The app enforces quotas **only on the frontend** today (`src/lib/quotas.ts`:
-10 trips/user, 500 events/trip, 50 checklist items/event, 5000-char memos). This
-is a **UX guard, not a security boundary** — a determined client could bypass it
-by writing directly via the API.
+The app enforces quotas only on the frontend today (`src/lib/quotas.ts`: 10 trips/user, 500 events/trip, 50 checklist items/event, 5000-char memos). This is a UX guard, not a security boundary.
 
-**Current risk: low.** RLS already restricts every row to its owner
-(`user_id = auth.uid()`), so a user can only ever inflate *their own* data. The
-quota gap is an abuse/cost concern, not a cross-user data risk.
+Recommended future approaches:
 
-**Recommended future approach** (pick one, in rough order of effort):
+1. Postgres trigger or RPC that counts existing rows and raises on overflow.
+2. RLS policy with a count subquery.
+3. Supabase Edge Function write path.
 
-1. **Postgres trigger / RPC** — a `BEFORE INSERT` trigger (or a `SECURITY DEFINER`
-   RPC the client must call) that counts existing non-deleted rows for the user /
-   trip and raises on overflow. Authoritative and DB-local.
-2. **RLS policy with a count subquery** — express the cap inside the INSERT
-   policy's `WITH CHECK` (e.g. count of the user's non-deleted trips `< 10`).
-   Simple but adds a subquery cost per insert.
-3. **Edge Function** — route writes through a Supabase Edge Function that checks
-   quotas server-side. Most flexible, most moving parts.
-
-When implemented, keep the frontend checks too (fast feedback) and treat the
-backend as the source of truth.
-
-## Why manual
-
-Trips and events use the same local-first sync pattern. Until the tables exist,
-the local RxDB collections still work fully offline; replication will log an
-error and no-op (no data loss). Cross-device sync activates once the SQL is
-applied.
+Keep frontend checks for fast feedback and treat the backend as the source of truth when implemented.

@@ -8,6 +8,9 @@ import {
     isGroupMember,
     isGroupOwner,
     mergeGroupsById,
+    getWorkspaceTagForTrip,
+    canManageTrip,
+    canManageGroup,
     type GroupSummary,
 } from './workspace';
 
@@ -41,6 +44,11 @@ describe('getTripWorkspace (fallback)', () => {
     it('falls back to Personal when workspace_type is group but workspace_id is missing', () => {
         const ws = getTripWorkspace({ workspace_type: 'group' }, USER);
         expect(ws.id).toBe('personal:user-123');
+    });
+
+    it('uses the row owner for untagged personal fallback when available', () => {
+        const ws = getTripWorkspace({ owner_id: 'owner-456' }, USER);
+        expect(ws.id).toBe('personal:owner-456');
     });
 });
 
@@ -138,5 +146,66 @@ describe('isTripInWorkspace', () => {
 
     it('does NOT match a group trip to a different group (no leak)', () => {
         expect(isTripInWorkspace({ workspace_type: 'group', workspace_id: 'g-A' }, groupB, USER)).toBe(false);
+    });
+});
+
+describe('getWorkspaceTagForTrip', () => {
+    it('returns a group tag for a group trip', () => {
+        expect(getWorkspaceTagForTrip({
+            owner_id: USER,
+            workspace_type: 'group',
+            workspace_id: 'g-A',
+        })).toEqual({ workspace_type: 'group', workspace_id: 'g-A' });
+    });
+
+    it('returns the owner personal tag for an untagged trip', () => {
+        expect(getWorkspaceTagForTrip({ owner_id: 'owner-456' })).toEqual({
+            workspace_type: 'personal',
+            workspace_id: 'personal:owner-456',
+        });
+    });
+});
+
+describe('canManageTrip (Phase 12D — member-collaborative)', () => {
+    const personal = getPersonalWorkspace(USER);
+    const groupA = groupWorkspace({ id: 'g-A', name: 'A' });
+
+    it('lets the owner manage their own personal trip', () => {
+        expect(canManageTrip({ owner_id: USER }, personal, USER)).toBe(true);
+    });
+
+    it('does NOT let a user manage a personal trip owned by someone else', () => {
+        expect(canManageTrip({ owner_id: 'other' }, personal, USER)).toBe(false);
+    });
+
+    it('lets ANY active member manage a group trip in that workspace (even if not the owner)', () => {
+        // Member is NOT the row owner, but the trip belongs to the group workspace.
+        expect(canManageTrip(
+            { owner_id: 'someone-else', workspace_type: 'group', workspace_id: 'g-A' },
+            groupA,
+            USER,
+        )).toBe(true);
+    });
+
+    it('does NOT let a user manage a group trip from a different group', () => {
+        expect(canManageTrip(
+            { owner_id: 'someone-else', workspace_type: 'group', workspace_id: 'g-OTHER' },
+            groupA,
+            USER,
+        )).toBe(false);
+    });
+});
+
+describe('canManageGroup (Phase 12D.1 — owner-only group edit/delete)', () => {
+    it('lets the owner manage the group document', () => {
+        expect(canManageGroup({ owner_id: USER }, USER)).toBe(true);
+    });
+
+    it('does NOT let a non-owner member manage the group document', () => {
+        expect(canManageGroup({ owner_id: 'someone-else' }, USER)).toBe(false);
+    });
+
+    it('does NOT let anyone manage a soft-deleted group', () => {
+        expect(canManageGroup({ owner_id: USER, is_deleted: true }, USER)).toBe(false);
     });
 });

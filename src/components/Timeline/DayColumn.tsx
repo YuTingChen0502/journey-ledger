@@ -31,7 +31,7 @@ export function DayColumn({ date, children, className, hourHeight = 120 }: DayCo
             ref={setNodeRef}
             style={{ height: `${hourHeight * HOURS_IN_DAY}px` }}
             className={cn(
-                "relative flex-1 min-w-[120px] sm:min-w-[150px] border-r border-border/50",
+                "relative flex-1 min-w-[180px] sm:min-w-[200px] lg:min-w-[220px] xl:min-w-[232px] border-r border-border/50",
                 isOver ? "bg-accent/20" : "bg-background",
                 className
             )}

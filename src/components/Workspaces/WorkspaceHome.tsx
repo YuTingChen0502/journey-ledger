@@ -1,16 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useRxData } from 'rxdb-hooks'
-import { LogOut, User, Users } from 'lucide-react'
+import { useRxData, useRxCollection } from 'rxdb-hooks'
+import { LogOut, User, Users, Pencil, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+    AlertDialogAction,
+} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
 import type { GroupDocType } from '@/db/groupSchema'
 import {
-    getPersonalWorkspace, groupWorkspace, mergeGroupsById,
+    getPersonalWorkspace, groupWorkspace, mergeGroupsById, canManageGroup,
     type GroupSummary, type Workspace,
 } from '@/lib/workspace'
+import { loadSelectedWorkspace, clearSelectedWorkspace } from '@/lib/selectedTrip'
 import { CreateGroupModal } from '@/components/Trips/CreateGroupModal'
 import { JoinGroupModal } from '@/components/Trips/JoinGroupModal'
 import { GroupInviteButton } from '@/components/Trips/GroupInviteButton'
+import { EditGroupModal } from '@/components/Trips/EditGroupModal'
 import { fetchVisibleGroups } from '@/services/groups'
 
 interface WorkspaceHomeProps {
@@ -33,6 +46,8 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
         })
     )
 
+    const groupsCollection = useRxCollection<GroupDocType>('groups')
+
     // Joined groups (member but not owner) — resolved online via Supabase, since
     // they're intentionally not pulled into the owner-scoped RxDB collection.
     const [memberGroups, setMemberGroups] = useState<GroupSummary[]>([])
@@ -43,6 +58,44 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
         })
         return () => { cancelled = true }
     }, [userId])
+
+    // Owner-only group edit / soft-delete (Phase 12D.1).
+    const [editingGroup, setEditingGroup] = useState<GroupSummary | null>(null)
+    const [editGroupOpen, setEditGroupOpen] = useState(false)
+    const [groupPendingDelete, setGroupPendingDelete] = useState<GroupSummary | null>(null)
+    const [isDeletingGroup, setIsDeletingGroup] = useState(false)
+
+    const handleEditGroup = (group: GroupSummary) => {
+        setEditingGroup(group)
+        setEditGroupOpen(true)
+    }
+
+    const handleConfirmDeleteGroup = async () => {
+        if (!groupsCollection || !groupPendingDelete) return
+        setIsDeletingGroup(true)
+        try {
+            const doc = await groupsCollection.findOne(groupPendingDelete.id).exec()
+            if (doc) {
+                // Soft-delete only: hide the group, never hard-delete. Group
+                // trips/events are intentionally left untouched (no cascade).
+                await doc.incrementalPatch({ is_deleted: true, updated_at: Date.now() })
+            }
+            // Drop the online copy too so it doesn't linger until the next fetch.
+            setMemberGroups((prev) => prev.filter((g) => g.id !== groupPendingDelete.id))
+            // If the persisted active workspace was this group, forget it so a
+            // reload safely returns to Workspaces instead of an empty group.
+            if (loadSelectedWorkspace()?.id === groupPendingDelete.id) {
+                clearSelectedWorkspace()
+            }
+            toast.success('Group deleted')
+            setGroupPendingDelete(null)
+        } catch (err) {
+            console.error('Failed to delete group', err)
+            toast.error('Could not delete the group')
+        } finally {
+            setIsDeletingGroup(false)
+        }
+    }
 
     const groups = useMemo(() => {
         const owned: GroupSummary[] = ownedGroups.map((g) => ({
@@ -126,7 +179,7 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {groups.map((group) => {
-                                const isOwner = group.owner_id === userId
+                                const isOwner = canManageGroup(group, userId)
                                 return (
                                     <Card
                                         key={group.id}
@@ -150,7 +203,33 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                                                 ? <p className="text-sm text-muted-foreground truncate">{group.description}</p>
                                                 : <p className="text-sm text-muted-foreground/70">{isOwner ? 'Owner' : 'Member'}</p>}
                                         </div>
-                                        {isOwner && <GroupInviteButton groupId={group.id} ownerId={userId} />}
+                                        {/* Owner-only controls (Phase 12D.1). Members collaborate on
+                                            group trips/events but cannot edit/delete the group itself. */}
+                                        {isOwner && (
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <GroupInviteButton groupId={group.id} ownerId={userId} />
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                    title="Edit group"
+                                                    aria-label="Edit group"
+                                                    onClick={(e) => { e.stopPropagation(); handleEditGroup(group) }}
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                    title="Delete group"
+                                                    aria-label="Delete group"
+                                                    onClick={(e) => { e.stopPropagation(); setGroupPendingDelete(group) }}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        )}
                                     </Card>
                                 )
                             })}
@@ -158,6 +237,36 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                     )}
                 </section>
             </div>
+
+            {/* Owner-only group edit */}
+            <EditGroupModal
+                group={editingGroup}
+                open={editGroupOpen}
+                onOpenChange={setEditGroupOpen}
+                onSaved={(next) => setEditingGroup((g) => (g && g.id === next.id ? { ...g, ...next } : g))}
+            />
+
+            {/* Owner-only soft-delete confirmation */}
+            <AlertDialog open={!!groupPendingDelete} onOpenChange={(open) => !open && setGroupPendingDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this group?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            The group will be hidden for you and all members. Its trips and events are not deleted. This cannot be undone from the app.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeletingGroup}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={(e) => { e.preventDefault(); handleConfirmDeleteGroup() }}
+                            disabled={isDeletingGroup}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            Delete group
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

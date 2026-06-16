@@ -6,6 +6,8 @@
 
 ## Features
 
+* **Group workspaces** - invite members, share group trips, and collaborate on group trip events.
+
 * **Multi-trip workspaces** — create, edit, soft-delete, and switch between trips; the selected trip persists across reloads.
 * **Journal / Overview** — read-only day-by-day view of a trip, driven by the trip's date range.
 * **Planning Timeline** — drag/resize events across the trip's days, with a backlog for unscheduled items.
@@ -54,6 +56,7 @@ Set these in `.env.local` (see `.env.example`):
 
 * First-time Supabase setup (tables, RLS, realtime): [`supabase/README.md`](supabase/README.md) → run [`supabase/bootstrap.sql`](supabase/bootstrap.sql).
 * Production deployment checklist: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+* Production auth email: configure Custom SMTP in Supabase for signup confirmation and forgot-password emails; do not put SMTP secrets or service-role keys in frontend env.
 
 ## Testing
 

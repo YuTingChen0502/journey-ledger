@@ -17,7 +17,7 @@ import type { TripDocType } from '@/db/tripSchema'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
 import { loadSelectedTripId, clearSelectedTripId } from '@/lib/selectedTrip'
-import { isTripInWorkspace, type Workspace } from '@/lib/workspace'
+import { canManageTrip, isTripInWorkspace, type Workspace } from '@/lib/workspace'
 import { TripCard } from './TripCard'
 import { CreateTripModal } from './CreateTripModal'
 import { EditTripModal } from './EditTripModal'
@@ -70,13 +70,13 @@ export function TripLibrary({ workspace, onSelectTrip, onBackToWorkspaces, signO
         }
     }
 
-    // Only this user's non-deleted trips. Replication already scopes by user via
-    // RLS, but we filter locally too for correctness and clarity.
-    const { result: ownedTrips, isFetching } = useRxData<TripDocType>('trips', (collection) =>
+    // All locally visible non-deleted trips. Supabase RLS + Phase 12D hydration
+    // determine what can reach the local DB; workspace filtering below prevents
+    // personal/group cross-contamination.
+    const { result: visibleTrips, isFetching } = useRxData<TripDocType>('trips', (collection) =>
         collection.find({
             selector: {
                 is_deleted: { $eq: false },
-                owner_id: { $eq: ownerId },
             },
             sort: [{ start_date: 'asc' }],
         })
@@ -85,8 +85,8 @@ export function TripLibrary({ workspace, onSelectTrip, onBackToWorkspaces, signO
     // Phase 12A: scope to the active workspace. Trips missing workspace fields
     // fall back to Personal, so existing trips appear under Personal.
     const trips = useMemo(
-        () => ownedTrips.filter((trip) => isTripInWorkspace(trip, workspace, ownerId)),
-        [ownedTrips, workspace, ownerId]
+        () => visibleTrips.filter((trip) => isTripInWorkspace(trip, workspace, ownerId)),
+        [visibleTrips, workspace, ownerId]
     )
 
     return (
@@ -148,6 +148,7 @@ export function TripLibrary({ workspace, onSelectTrip, onBackToWorkspaces, signO
                                 onSelect={onSelectTrip}
                                 onEdit={handleEdit}
                                 onDelete={setTripPendingDelete}
+                                canManage={canManageTrip(trip, workspace, ownerId)}
                             />
                         ))}
                     </div>

@@ -1,19 +1,21 @@
-import { useState } from 'react'
+import { Component, useState } from 'react'
+import type { ReactNode } from 'react'
 import { Button } from './ui/button'
 import { TripDashboard } from './Home/TripDashboard'
 import { TripTable } from './TripTable'
 import { TripViewer } from './TripViewer/TripViewer'
 import { TimelineView } from './Timeline/TimelineView'
-import { ResponsiveLayout } from './Layout/ResponsiveLayout'
 import { ImportModal } from './ImportModal'
 import { EventModal } from './EventModal'
 import { EventDetailView } from './Timeline/EventDetailView'
-import { ErrorBoundary } from './ErrorBoundary'
 import { Plus, LogOut, Home, BookOpen, Map, ChevronLeft } from 'lucide-react'
-import { parseISO, isValid } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
 import type { TripDocType } from '@/db/tripSchema'
+import { getWorkspaceTagForTrip } from '@/lib/workspace'
+import { getTripAvailabilityIssue } from '@/lib/tripAvailability'
+import { safeParseISO } from '@/lib/dateUtils'
+import { getWorkspaceContentBranch, normalizeWorkspaceMode } from '@/lib/workspaceViewState'
 
 interface TripWorkspaceProps {
     trip: TripDocType
@@ -21,8 +23,80 @@ interface TripWorkspaceProps {
     signOut: () => Promise<void>
 }
 
-type WorkspaceMode = 'dashboard' | 'overview' | 'planning'
+type WorkspaceMode = 'dashboard' | 'overview' | 'planning' | 'home' | 'journal' | 'plan'
 type PlanningView = 'timeline' | 'table'
+
+interface WorkspaceContentUnavailableProps {
+    rawMode: string
+    normalizedMode: string | null
+    contentBranch: string
+    tripId: string
+    tripTitle: string
+    onReturnHome?: () => void
+}
+
+function WorkspaceContentUnavailable({
+    rawMode,
+    normalizedMode,
+    contentBranch,
+    tripId,
+    tripTitle,
+    onReturnHome,
+}: WorkspaceContentUnavailableProps) {
+    return (
+        <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center gap-4 bg-card p-8 text-center">
+            <div className="space-y-2">
+                <h1 className="text-2xl font-serif font-semibold text-primary">Workspace content unavailable.</h1>
+                <p className="max-w-md text-sm text-muted-foreground">
+                    The trip opened, but this workspace view could not be rendered.
+                </p>
+            </div>
+            {import.meta.env.DEV && (
+                <div className="rounded-md bg-muted px-4 py-3 text-left text-xs text-muted-foreground">
+                    <div>rawMode: {rawMode}</div>
+                    <div>normalizedMode: {normalizedMode ?? '(unknown)'}</div>
+                    <div>contentBranch: {contentBranch}</div>
+                    <div>trip id: {tripId}</div>
+                    <div>trip title: {tripTitle}</div>
+                </div>
+            )}
+            {onReturnHome && (
+                <Button type="button" onClick={onReturnHome}>
+                    Return to trip home
+                </Button>
+            )}
+        </div>
+    )
+}
+
+interface WorkspaceContentBoundaryProps extends WorkspaceContentUnavailableProps {
+    children: ReactNode
+}
+
+class WorkspaceContentBoundary extends Component<
+    WorkspaceContentBoundaryProps,
+    { hasError: boolean }
+> {
+    constructor(props: WorkspaceContentBoundaryProps) {
+        super(props)
+        this.state = { hasError: false }
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true }
+    }
+
+    componentDidCatch(error: Error) {
+        console.error('Workspace content failed to render', error)
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return <WorkspaceContentUnavailable {...this.props} />
+        }
+        return this.props.children
+    }
+}
 
 export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspaceProps) {
     const { session } = useAuth()
@@ -35,10 +109,33 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
     const [detailViewOpen, setDetailViewOpen] = useState(false)
 
+    const tripAvailabilityIssue = getTripAvailabilityIssue(trip)
+
+    if (tripAvailabilityIssue) {
+        return (
+            <div className="flex min-h-screen w-full flex-col bg-background text-foreground">
+                <div className="flex min-h-[60vh] flex-1 flex-col items-center justify-center gap-4 bg-card p-8 text-center">
+                    <div className="space-y-2">
+                        <h1 className="text-2xl font-serif font-semibold text-primary">Trip not available yet.</h1>
+                        <p className="max-w-md text-sm text-muted-foreground">
+                            This trip record is missing required workspace data. Return to the trip list and try again after sync finishes.
+                        </p>
+                    </div>
+                    <Button type="button" variant="outline" onClick={onBackToTrips}>
+                        Return to trips
+                    </Button>
+                </div>
+            </div>
+        )
+    }
+
     // Phase 4: the workspace is now fully scoped to the selected trip via
     // `trip.id`. New events / imports default to the trip's first day.
-    const tripStart = parseISO(trip.start_date)
-    const defaultEventDate = isValid(tripStart) ? tripStart : new Date()
+    const tripStart = safeParseISO(trip.start_date)
+    const defaultEventDate = tripStart ?? new Date()
+    const eventWorkspaceTag = getWorkspaceTagForTrip(trip)
+    const activeMode = normalizeWorkspaceMode(mode)
+    const contentBranch = getWorkspaceContentBranch(mode, planningView)
 
     const handleCreateEvent = () => {
         setSelectedEventId(null)
@@ -79,7 +176,7 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
                 <ChevronLeft className="h-4 w-4" /> {t('nav.back')}
             </Button>
 
-            {mode === 'planning' && (
+            {activeMode === 'planning' && (
                 <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg ml-4 shrink-0">
                     <Button
                         variant="ghost"
@@ -101,7 +198,7 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
             )}
 
             <div className="flex items-center gap-2 ml-auto shrink-0">
-                {mode === 'planning' && (
+                {activeMode === 'planning' && (
                     <Button
                         size="sm"
                         variant="outline"
@@ -112,13 +209,15 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
                     </Button>
                 )}
 
-                {mode === 'overview' && (
+                {activeMode === 'overview' && (
                     <Button variant="ghost" size="sm" onClick={() => setMode('planning')}>
                         {t('nav.edit_itinerary')}
                     </Button>
                 )}
                 <ImportModal
                     tripId={trip.id}
+                    workspaceType={eventWorkspaceTag.workspace_type}
+                    workspaceId={eventWorkspaceTag.workspace_id}
                     tripStartDate={trip.start_date}
                     tripEndDate={trip.end_date}
                     defaultDate={defaultEventDate}
@@ -139,76 +238,123 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
             <Button
                 variant="ghost"
                 onClick={() => setMode('dashboard')}
-                className={`flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl transition-colors ${mode === 'dashboard' ? 'text-[#923e48]' : 'text-muted-foreground/60 hover:text-[#923e48]/80'}`}
+                className={`flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl transition-colors ${activeMode === 'dashboard' ? 'text-[#923e48]' : 'text-muted-foreground/60 hover:text-[#923e48]/80'}`}
             >
-                <Home className="w-6 h-6" strokeWidth={mode === 'dashboard' ? 2.5 : 2} />
+                <Home className="w-6 h-6" strokeWidth={activeMode === 'dashboard' ? 2.5 : 2} />
                 <span className="text-[10px] font-medium tracking-wide">{t('nav.home')}</span>
             </Button>
 
             <Button
                 variant="ghost"
                 onClick={() => setMode('overview')}
-                className={`flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl transition-colors ${mode === 'overview' ? 'text-[#923e48]' : 'text-muted-foreground/60 hover:text-[#923e48]/80'}`}
+                className={`flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl transition-colors ${activeMode === 'overview' ? 'text-[#923e48]' : 'text-muted-foreground/60 hover:text-[#923e48]/80'}`}
             >
-                <BookOpen className="w-6 h-6" strokeWidth={mode === 'overview' ? 2.5 : 2} />
+                <BookOpen className="w-6 h-6" strokeWidth={activeMode === 'overview' ? 2.5 : 2} />
                 <span className="text-[10px] font-medium tracking-wide">{t('nav.journal')}</span>
             </Button>
 
             <Button
                 variant="ghost"
                 onClick={() => setMode('planning')}
-                className={`flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl transition-colors ${mode === 'planning' ? 'text-[#923e48]' : 'text-muted-foreground/60 hover:text-[#923e48]/80'}`}
+                className={`flex flex-col h-auto py-1 gap-1 min-w-[60px] rounded-xl transition-colors ${activeMode === 'planning' ? 'text-[#923e48]' : 'text-muted-foreground/60 hover:text-[#923e48]/80'}`}
             >
-                <Map className="w-6 h-6" strokeWidth={mode === 'planning' ? 2.5 : 2} />
+                <Map className="w-6 h-6" strokeWidth={activeMode === 'planning' ? 2.5 : 2} />
                 <span className="text-[10px] font-medium tracking-wide">{t('nav.plan')}</span>
             </Button>
             <div className="absolute bottom-1 right-2 text-[8px] text-muted-foreground/30 pointer-events-none">v0.12.2</div>
         </div>
     )
 
+    const mainContent: ReactNode =
+        contentBranch === 'dashboard' ? (
+            <TripDashboard trip={trip} onBack={onBackToTrips} />
+        ) : contentBranch === 'overview' ? (
+            <TripViewer trip={trip} onEventClick={handleEventClick} />
+        ) : contentBranch === 'planning:timeline' ? (
+            <TimelineView trip={trip} onEventClick={handleEventClick} />
+        ) : contentBranch === 'planning:table' ? (
+            <TripTable tripId={trip.id} onEdit={handleEditEvent} />
+        ) : (
+            <div className="flex min-h-[calc(100vh-8rem)] flex-col items-center justify-center gap-4 bg-card p-8 text-center">
+                <h1 className="text-2xl font-serif font-semibold text-primary">Unknown workspace view.</h1>
+                <WorkspaceContentUnavailable
+                    rawMode={String(mode)}
+                    normalizedMode={activeMode}
+                    contentBranch={contentBranch}
+                    tripId={trip.id}
+                    tripTitle={trip.title}
+                    onReturnHome={() => setMode('dashboard')}
+                />
+            </div>
+        )
+
+    const shellSectionLabel =
+        contentBranch === 'dashboard'
+            ? 'Workspace'
+            : contentBranch === 'overview'
+                ? 'Journal'
+                : contentBranch === 'planning:timeline' || contentBranch === 'planning:table'
+                    ? 'Planning'
+                    : 'Unknown workspace view.'
+
     return (
         <>
-            <ResponsiveLayout
-                topNav={mode !== 'dashboard' ? TopNavigation : null}
-                bottomNav={BottomNavigation}
-                className={mode === 'dashboard' ? 'bg-transparent shadow-none !my-0 !max-w-none' : ''}
+            <section
+                data-testid="trip-workspace-ready-heading"
+                className="relative z-10 shrink-0 border-b border-border/60 bg-background/95 px-6 py-4"
             >
-                <div className={`h-full w-full overflow-hidden relative p-0 m-0 ${mode !== 'dashboard' ? 'bg-card' : ''}`}>
-                    <ErrorBoundary>
-                        {mode === 'dashboard' && <TripDashboard trip={trip} onBack={onBackToTrips} onNavigate={(view) => {
-                            if (view === 'planner') {
-                                setPlanningView('timeline')
-                                setMode('planning')
-                            } else if (view === 'table') {
-                                setPlanningView('table')
-                                setMode('planning')
-                            } else {
-                                setMode(view)
-                            }
-                        }} />}
+                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    {shellSectionLabel}
+                </p>
+                <h1 className="mt-1 text-2xl font-serif font-semibold text-primary">
+                    {trip.title}
+                </h1>
+            </section>
+            <div className="flex min-h-screen w-full flex-col bg-background text-foreground font-sans selection:bg-primary/20">
+                {activeMode !== 'dashboard' && (
+                    <header className="sticky top-0 z-50 flex shrink-0 items-center justify-between gap-2 overflow-x-auto border-b border-white/20 bg-card/80 px-4 py-3 backdrop-blur-md transition-all [scrollbar-width:none] md:px-6 md:py-4 [&::-webkit-scrollbar]:hidden">
+                        {TopNavigation}
+                    </header>
+                )}
 
-                        {mode === 'overview' && <TripViewer trip={trip} onEventClick={handleEventClick} />}
+                <main className={`relative flex-1 min-h-[calc(100vh-4rem)] overflow-auto pb-24 ${activeMode !== 'dashboard' ? 'bg-card' : ''}`}>
+                    <WorkspaceContentBoundary
+                        rawMode={String(mode)}
+                        normalizedMode={activeMode}
+                        contentBranch={contentBranch}
+                        tripId={trip.id}
+                        tripTitle={trip.title}
+                        onReturnHome={() => setMode('dashboard')}
+                    >
+                        {mainContent}
+                    </WorkspaceContentBoundary>
+                </main>
 
-                        {mode === 'planning' && planningView === 'timeline' && <TimelineView trip={trip} onEventClick={handleEventClick} />}
-                        {mode === 'planning' && planningView === 'table' && <TripTable tripId={trip.id} onEdit={handleEditEvent} />}
-                    </ErrorBoundary>
-                </div>
-            </ResponsiveLayout>
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur pb-safe">
+                    {BottomNavigation}
+                </nav>
+            </div>
 
-            <EventModal
-                userId={session?.user?.id || 'guest'}
-                tripId={trip.id}
-                eventId={selectedEventId}
-                isOpen={eventModalOpen}
-                onOpenChange={setEventModalOpen}
-                defaultDate={defaultEventDate}
-            />
+            {eventModalOpen && (
+                <EventModal
+                    userId={session?.user?.id || 'guest'}
+                    tripId={trip.id}
+                    workspaceType={eventWorkspaceTag.workspace_type}
+                    workspaceId={eventWorkspaceTag.workspace_id}
+                    eventId={selectedEventId}
+                    isOpen={eventModalOpen}
+                    onOpenChange={setEventModalOpen}
+                    defaultDate={defaultEventDate}
+                />
+            )}
 
-            <EventDetailView
-                eventId={selectedEventId}
-                open={detailViewOpen}
-                onClose={() => setDetailViewOpen(false)}
-            />
+            {detailViewOpen && selectedEventId && (
+                <EventDetailView
+                    eventId={selectedEventId}
+                    open={detailViewOpen}
+                    onClose={() => setDetailViewOpen(false)}
+                />
+            )}
         </>
     )
 }

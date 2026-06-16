@@ -282,13 +282,13 @@ export function TimelineView({ trip, onEventClick }: TimelineViewProps) {
                             WebkitOverflowScrolling: 'touch',
                         }}
                     >
-                        <div className="flex pb-32" style={{ height: `${gridHeight}px` }}> {/* responsive height; pb-32 for mobile bottom safety */}
+                        <div className="flex min-w-max pb-32" style={{ height: `${gridHeight}px` }}> {/* responsive height; pb-32 for mobile bottom safety */}
                             {days.map(day => {
                                 const dateKey = format(day, 'yyyy-MM-dd');
                                 const dayList = dayEvents.get(dateKey) || [];
 
                                 return (
-                                    <div key={dateKey} className="flex flex-col border-r flex-shrink-0 day-column">
+                                    <div key={dateKey} className="flex w-[180px] flex-shrink-0 flex-col border-r sm:w-[200px] lg:w-[220px] xl:w-[232px] day-column">
                                         {/* Header */}
                                         <div className="h-8 flex items-center justify-center border-b font-medium text-sm bg-white/30 sticky top-0 z-20 shadow-sm backdrop-blur-md">
                                             {format(day, 'EEE d', { locale: dateLocale })}

@@ -24,6 +24,8 @@ interface ImportModalProps {
     children?: React.ReactNode;
     defaultDate?: Date;
     tripId: string; // We need to know which trip to add to
+    workspaceType?: 'personal' | 'group';
+    workspaceId?: string;
     tripStartDate?: string; // YYYY-MM-DD — used to keep imports within the trip range
     tripEndDate?: string;   // YYYY-MM-DD
     // userId: string; // Removed, use context
@@ -31,7 +33,16 @@ interface ImportModalProps {
     userId?: string; // Optional for compatibility if passed, but ignored in favor of context
 }
 
-export function ImportModal({ children, defaultDate = new Date(), tripId, tripStartDate, tripEndDate, onImportSuccess }: ImportModalProps) {
+export function ImportModal({
+    children,
+    defaultDate = new Date(),
+    tripId,
+    workspaceType,
+    workspaceId,
+    tripStartDate,
+    tripEndDate,
+    onImportSuccess
+}: ImportModalProps) {
     const { user } = useAuth();
     const userId = user?.id || 'guest';
     const { t } = useTranslation();
@@ -148,7 +159,9 @@ export function ImportModal({ children, defaultDate = new Date(), tripId, tripSt
                 sort_order: 'n',
                 created_at: Date.now(),
                 updated_at: Date.now(),
-                is_deleted: false
+                is_deleted: false,
+                workspace_type: workspaceType,
+                workspace_id: workspaceId
             };
         });
 

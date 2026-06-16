@@ -1,23 +1,22 @@
 # Deployment Guide
 
-Deploying Journey Ledger is two parts: (1) provision the Supabase backend, and
-(2) build and host the static PWA frontend. Nothing deploys automatically — run
-these steps deliberately.
+Deploying Journey Ledger is two parts: provision the Supabase backend, then build and host the static PWA frontend.
 
-## 1. Supabase project setup
+## 1. Supabase Project Setup
 
-- [ ] Create a Supabase project (or reuse an existing one).
-- [ ] Open **SQL Editor** and run [`../supabase/bootstrap.sql`](../supabase/bootstrap.sql). This creates the mirror tables (`trip_events`, `trips`, `groups`), the group membership tables (`group_members`, `group_invites`), the `join_group_by_invite_code` RPC + helpers/trigger, indexes, RLS policies, and the realtime publication. It is idempotent. *(An already-deployed project upgrading to Phase 12C should instead run [`../supabase/migrations/20260617_group_members_invites.sql`](../supabase/migrations/20260617_group_members_invites.sql) — required before cross-account invite-code joining works.)*
-- [ ] Verify the mirror tables exist (**Table Editor**) with the 5 columns: `id`, `updated_at`, `deleted`, `user_id`, `data`.
-- [ ] Verify **RLS is enabled** on both tables (**Authentication → Policies**), each with SELECT / INSERT / UPDATE policies scoped to `auth.uid() = user_id`, and **no DELETE policy** (soft-delete via `deleted = true`).
-- [ ] Verify **Realtime** includes both tables (**Database → Publications → `supabase_realtime`**).
-- [ ] Configure Auth providers (email/OAuth as desired).
-- [ ] Set **Auth → URL Configuration**:
-  - **Site URL** → your deployed production URL (e.g. `https://your-app.vercel.app`).
-  - **Redirect URLs** → add the production URL (e.g. `https://your-app.vercel.app/**`). You may keep `http://localhost:5173/**` for local dev.
-  - These must match the origin the app is served from, or magic-link / OAuth redirects will fail in production.
+- [ ] Create a Supabase project, or reuse an existing one.
+- [ ] For a fresh project, open SQL Editor and run [`../supabase/bootstrap.sql`](../supabase/bootstrap.sql). It creates the mirror tables, group membership/invite tables, invite RPC, ownership-safe sync RPCs, indexes, RLS policies, and realtime publication.
+- [ ] For an already-deployed project upgrading from Phase 12C, run [`../supabase/migrations/20260618_group_trip_event_sharing.sql`](../supabase/migrations/20260618_group_trip_event_sharing.sql) before testing shared group trips/events.
+- [ ] Verify `trip_events`, `trips`, and `groups` exist with the mirror columns: `id`, `updated_at`, `deleted`, `user_id`, `data`.
+- [ ] Verify `group_members` and `group_invites` exist.
+- [ ] Verify RLS is enabled. `trips` / `trip_events` should have member-aware SELECT policies and blocked direct INSERT/UPDATE policies; writes go through `sync_trip_documents` and `sync_trip_event_documents`.
+- [ ] Verify Realtime includes `trip_events`, `trips`, and `groups` in `supabase_realtime`.
+- [ ] Configure Auth providers.
+- [ ] Set Auth URL Configuration:
+  - Site URL: your deployed production URL, such as `https://your-app.vercel.app`.
+  - Redirect URLs: add the production wildcard, such as `https://your-app.vercel.app/**`, and keep `http://localhost:5173/**` for local dev.
 
-For password recovery, Supabase Auth **Redirect URLs** must also include:
+For password recovery, Supabase Auth Redirect URLs must include:
 
 ```text
 https://<production-domain>/reset-password
@@ -28,23 +27,48 @@ http://localhost:5173/**
 
 Do not hardcode the production domain in app code; Journey Ledger builds the reset redirect from `window.location.origin`.
 
+### Email sending & signup/password-reset rate limits
+
+Supabase's **built-in email provider is for testing/demo only** and has a **very
+low email-send limit**. This affects both signup confirmation emails and
+forgot-password recovery emails. Repeated requests can return
+`email rate limit exceeded` or another rate-limit error (HTTP 429). The app
+detects this in both flows and shows a friendly message:
+
+```text
+Too many emails were requested. Please wait about an hour and try again.
+```
+
+The frontend does **not**, and must not, try to bypass the limit.
+
+For production / heavier testing:
+
+- [ ] Configure **Custom SMTP** in **Supabase Dashboard → Authentication →
+  Emails → SMTP Settings** (use your own email provider). The built-in provider
+  is not suitable for production.
+- [ ] After enabling Custom SMTP, raise the relevant caps under **Authentication
+  → Rate Limits** (for example signup confirmation, password recovery, and
+  email-send limits) to values your provider supports.
+- [ ] Keep secrets server-side: SMTP credentials live in the Supabase Dashboard
+  only. **Never** commit SMTP secrets, service-role keys, or Management API
+  calls into the frontend.
+
 See [`../supabase/README.md`](../supabase/README.md) for the full column contract and RLS expectations.
 
-## 2. Environment variables
+## 2. Environment Variables
 
-Set these on your hosting provider (and locally in `.env.local`):
+Set these on your hosting provider and locally in `.env.local`:
 
 | Variable | Value |
 |----------|-------|
 | `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase **anon / publishable** key |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon / publishable key |
 
-- [ ] **Never** set `service_role` / secret keys in the frontend env — they bypass RLS and ship to the browser. The client uses the anon key only; row ownership is enforced by RLS.
+- [ ] Never set `service_role` / secret keys in frontend env. The client uses the anon key only.
 
-## 3. Build & host
+## 3. Build & Host
 
-Journey Ledger is a static SPA/PWA — host the build output on any static host
-(Vercel, Netlify, Cloudflare Pages, GitHub Pages, S3 + CDN, etc.).
+Journey Ledger is a static SPA/PWA. Host the build output on Vercel, Netlify, Cloudflare Pages, GitHub Pages, S3 + CDN, or another static host.
 
 | Setting | Value |
 |---------|-------|
@@ -53,106 +77,112 @@ Journey Ledger is a static SPA/PWA — host the build output on any static host
 | Output directory | `dist` |
 | Node version | 18+ (20+ recommended) |
 
-- [ ] Configure SPA fallback (rewrite all routes to `/index.html`) if your host needs it.
-- [ ] Ensure HTTPS (required for service worker / PWA install).
+- [ ] Configure SPA fallback to `/index.html` if your host needs it.
+- [ ] Ensure HTTPS for service worker / PWA install.
 
-### Vercel (recommended)
+### Vercel
 
-- [ ] Import the repo into Vercel. Framework preset: **Vite** (auto-detected).
-- [ ] Build command: `npm run build` · Output directory: `dist` · Install: `npm install`.
-- [ ] SPA fallback is already provided by [`../vercel.json`](../vercel.json) (rewrites all routes to `/index.html`) — no extra config needed.
-- [ ] Add environment variables in **Project → Settings → Environment Variables** (Production + Preview): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. **Anon key only — never the `service_role`/secret key.**
-- [ ] After the first deploy, copy the production URL into Supabase **Auth → URL Configuration** (Site URL + Redirect URLs, see §1).
-- [ ] Redeploy if you changed env vars after the initial build (Vite inlines `VITE_*` at build time).
+- [ ] Import the repo into Vercel. Framework preset: Vite.
+- [ ] Build command: `npm run build`; output directory: `dist`; install command: `npm install`.
+- [ ] SPA fallback is already provided by [`../vercel.json`](../vercel.json).
+- [ ] Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Project Settings / Environment Variables.
+- [ ] After the first deploy, copy the production URL into Supabase Auth URL Configuration.
+- [ ] Redeploy if you changed env vars after the initial build.
 
-## 4. Post-deploy smoke test
+## 4. Post-Deploy Smoke Test
 
-- [ ] App loads; the splash screen clears.
-- [ ] Sign up / sign in works (Supabase Auth).
-- [ ] Forgot password sends a Supabase reset email; the link returns to `/reset-password`; setting a new password succeeds; signing in with the new password works.
-- [ ] TripLibrary loads — a brand-new account shows the empty-state onboarding (no auto-seeded trip); existing accounts show their synced trips.
-- [ ] Create a trip → it appears in the library.
-- [ ] Open a trip → Journal and Planning render for the trip's date range.
-- [ ] Add an event → it shows only in that trip (cross-trip isolation).
-- [ ] Edit the trip (title/dates) → changes persist after reload.
-- [ ] Reload while a trip is open → it reopens (selected-trip persistence).
-- [ ] Click "All Trips", reload → starts at TripLibrary.
-- [ ] Soft-delete a temporary trip → it disappears from the library.
-- [ ] Go offline → app still works; go back online → data syncs (check a second device/browser).
-- [ ] Install as PWA (icon = Journey Ledger mark).
+- [ ] App loads and the splash screen clears.
+- [ ] Sign up / sign in works.
+- [ ] Forgot password sends a Supabase reset email; the link returns to `/reset-password`; setting a new password succeeds.
+- [ ] TripLibrary loads. A brand-new account shows the empty state.
+- [ ] Create a personal trip; it appears in the Personal workspace.
+- [ ] Open the trip; Journal and Planning render for the trip's date range.
+- [ ] Add an event; it shows only in that trip.
+- [ ] Edit the trip title/dates; changes persist after reload.
+- [ ] Reload while a trip is open; it reopens.
+- [ ] Click "All Trips", reload; it starts at TripLibrary.
+- [ ] Soft-delete a temporary trip; it disappears from the library.
+- [ ] Go offline; app still works. Go back online; data syncs.
+- [ ] Install as PWA.
 
-## 5. RLS / user-isolation smoke test (two accounts)
+## 5. Personal RLS Isolation Test
 
-Confirms Row Level Security keeps each user's trips/events private. Use two
-separate accounts (different emails), ideally in two browsers or one normal + one
-private window.
+Use two separate accounts in two browsers or one normal plus one private window.
 
 ```text
 Account A:
 - log in
-- create "Trip A"
-- open Trip A, create "Event A"
+- create a Personal trip "Trip A"
+- open Trip A and create "Event A"
 
 Account B:
-- log in (separate browser / private window)
-- confirm Trip A and Event A are NOT visible
-- create "Trip B" + "Event B"
+- log in separately
+- confirm Trip A and Event A are NOT visible in Personal
+- create Personal "Trip B" and "Event B"
 
 Account A:
-- log back in / refresh
-- confirm Trip B and Event B are NOT visible
+- refresh
+- confirm Trip B and Event B are NOT visible in Personal
 ```
 
-Expected: each account sees only its own trips/events. If A sees B's data, RLS
-is misconfigured — re-check that RLS is **enabled** and the SELECT policy is
-`auth.uid() = user_id` on **both** `trips` and `trip_events` (see
-[`../supabase/README.md`](../supabase/README.md)).
+Expected: personal content remains private. If personal trips/events cross accounts, RLS is misconfigured.
 
-> Verify server-side too: in Supabase **Table Editor**, the `user_id` column on
-> new rows should equal the creating user's auth id, and a SQL query as one user
-> (via the API with their token) must never return another user's rows.
+## 6. Group Sharing Smoke Test
 
-## 6. Same-account multi-device sync smoke test
-
-Confirms local-first data syncs through Supabase for the same user.
+Run this only after applying Phase 12D SQL.
 
 ```text
-Account A — browser/device 1:
-- log in
-- create a trip + event
+Account A:
+- create a group
+- copy its invite code
+- create a group trip
+- create an event in that group trip
 
-Account A — browser/device 2:
-- log in as the same account
-- after sync (refresh if needed), confirm the trip + event appear
+Account B:
+- join the group by invite code
+- enter the group workspace
+- confirm Account A's group trip is visible
+- open the trip and confirm Account A's event is visible
+- create a new event in that shared group trip
+- edit an event in that shared group trip
+
+Account A:
+- refresh or wait for sync
+- confirm Account B's event/change appears
 ```
 
-Expected: data created on device 1 appears on device 2 once replication pulls
-(realtime, or on refresh). Some lag is normal (local-first; pull is checkpointed).
+Expected: active group members can see group trips and create/edit events in group trips. Personal trips remain private. Groups the user has not joined remain invisible.
 
-## 7. iPhone — Add to Home Screen (PWA)
+## 7. Same-Account Multi-Device Sync Test
+
+```text
+Account A, browser/device 1:
+- log in
+- create a trip and event
+
+Account A, browser/device 2:
+- log in as the same account
+- after sync, confirm the trip and event appear
+```
+
+Some lag is normal because sync is local-first and checkpointed.
+
+## 8. iPhone Add To Home Screen
 
 ```text
 iPhone Safari:
 1. Open the deployed production URL.
-2. Tap the Share button.
-3. Tap "Add to Home Screen".
-4. Confirm the name ("Journey Ledger") and icon, then Add.
+2. Tap Share.
+3. Tap Add to Home Screen.
+4. Confirm the name Journey Ledger and icon.
 5. Open the app from the Home Screen.
 ```
 
-Verify:
+Verify the app name, icon, standalone launch, reload behavior, offline baseline, and login.
 
-- [ ] App name shows as **Journey Ledger**.
-- [ ] The app icon appears (neutral Journey Ledger mark from `public/logo.svg`).
-- [ ] Launches in standalone mode (minimal browser chrome) if the manifest is honored.
-- [ ] Reloading / relaunching does not crash; offline baseline still renders.
-- [ ] Login still works when launched from the Home Screen.
+## 9. Known Operational Notes
 
-> Note: the PWA manifest currently uses a single **SVG** icon. Modern browsers
-> accept this; if iOS home-screen icon fidelity is poor, adding raster 192/512
-> PNG icons is a documented post-release backlog item (not required to ship).
-
-## 8. Known operational notes
-
-- **Quotas are frontend-only** (UX guard). There is no backend enforcement yet — see the design note in [`../supabase/README.md`](../supabase/README.md).
-- New accounts are **not** auto-seeded with any trip (Phase 11) — they start with an empty TripLibrary onboarding state. The legacy `nagoya-2026` seed trip is only present for accounts that already had it; it is no longer created on login.
+- Quotas are frontend-only UX guards; backend enforcement remains future work.
+- New accounts are not auto-seeded with any trip.
+- Group membership/invites are online security data. Owned groups sync locally; joined group descriptors are fetched online.
+- Group trip/event content is local-first after Phase 12D, with a hydration pass for historical shared rows.

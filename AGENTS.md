@@ -67,10 +67,23 @@ This file is the persistent source of truth for future Codex sessions. Read it b
 * **Phase 12B:** Groups shell and local group model (groups collection + replication; Create Group; group-scoped TripLibrary; still NO real multi-user sharing/RLS/invite codes).
 * **Phase 12C:** Group membership + invite-code foundation (`group_members` + `group_invites` tables, `join_group_by_invite_code` RPC, owner/member roles, widened group-visibility RLS, Join Group + Copy Invite Code UI). Group **trip/event** cross-user sharing is still deferred to **Phase 12D**.
 * **Phase 12C.1:** Auth recovery polish (forgot-password email + `/reset-password` password update flow; no group collaboration/RLS changes).
+* **Phase 12D:** Group trip/event sharing + RLS (member-visible group trips/events, RPC-based ownership-preserving sync, historical group hydration).
+* **Phase 12D.1 / 12F-lite:** Stabilization — auth reset-email rate-limit UX + SMTP docs, owner-only group edit/soft-delete, dev-reset docs. No new migration; no permission roles.
+* **Phase 12D.2:** Group workspace convergence / offline-first sync — robust delete-aware retrying group hydration (entry + reconnect), no clobbering of unpushed offline edits, deterministic last-write-wins. Foundational; 12E/12F paused for it.
+* **Phase 12D.3:** Auth email rate-limit UX/docs + responsive timeline/overview polish.
+* **Phase 12E:** Group permission/lifecycle hardening (roles UI, member management, leave/remove, invite lifecycle) and remaining release hardening.
 
 ## Phase Status
 
-Current phase: Phase 12C.1 complete — auth recovery polish (forgot-password + reset-password flow; group collaboration/RLS unchanged → Phase 12D)
+Current phase: Phase 12D.3 complete - auth email rate-limit UX/docs + responsive timeline/overview polish (next -> Phase 12E group permission/lifecycle hardening)
+
+> **Phase 12D.3 polish:** signup and forgot-password email-send rate limits now share one friendly auth message (`Too many emails were requested. Please wait about an hour and try again.`) via `authRecovery.ts`; no Supabase limit bypass, no service-role keys, no Management API, and no SMTP secrets in frontend code. Workspace screens use a wider tablet/desktop shell; the planning timeline has stable responsive day-column widths plus horizontal scrolling; Overview day tabs use a native `overflow-x-auto` + `min-w-max` strip so long trip date ranges remain reachable. No group sync/RLS/RPC/replication changes.
+
+> **Phase 12D.2 convergence model:** group + personal content share one RxDB collection and ONE global `updated_at` replication checkpoint, so a member's checkpoint can be ahead of a group's older rows. Those rows arrive via `hydrateGroupWorkspaceContent` (RLS-scoped backfill), now a repeatable, **delete-aware**, last-write-wins snapshot-reconcile that never clobbers unpushed offline edits (`shouldHydrateRow` in `src/lib/groupSync.ts`). `AppContent` re-arms it on the `online` event + a timed retry (not one-shot). Conflict policy = **last-write-wins by `updated_at`** in the sync RPCs (`20260619_group_sync_lww.sql` + `bootstrap.sql`) — **recommended, not required for convergence** (the frontend fix alone restores it). Offline create/edit flushes via RxDB's retrying push queue on reconnect; deletes converge via pull (delete bumps `updated_at`) and hydration.
+
+> **Phase 12D.1 split of group capabilities:** group **content** (trips/events) is **member-collaborative** (`canManageTrip`, member-based RLS); the group **document** (name/description/soft-delete) is **owner-only** (`canManageGroup` = `isGroupOwner`; `groups` table owner-only UPDATE RLS). Owner-only edit/delete UI lives in `WorkspaceHome` + `EditGroupModal`; soft-delete sets `is_deleted=true` (hidden for all members, **no cascade**). **No migration.** Auth reset-email errors mapped via `authRecovery.ts` `describeResetEmailError`/`isRateLimitError` (friendly rate-limit message; no provider bypass, no client secrets). Dev reset: `docs/DEV_RESET.md` + `supabase/dev_reset.sql` (dev-only, not a migration).
+
+> **Phase 12D collaboration fix:** group trip/event create/edit/soft-delete is allowed for **any active group member** (not just the owner). The earlier `can_manage_trip_row = is_group_owner` restriction made owner→member trip sharing asymmetric (members' trips replication stalled on hydration push-back). It is now `is_group_member`; the sync RPC still preserves `user_id`/`owner_id`/workspace/`created_at` on update (collaboration, not ownership transfer). **Manual action:** run `supabase/migrations/20260618_group_member_collaboration_fix.sql` (fresh projects get it via `bootstrap.sql`).
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `AGENTS.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -197,6 +210,21 @@ Completed:
   - Build/lint/test result: build passed; `npm test` 88/88; targeted eslint on touched source/test files passed. `npm run lint -- ...` still expands to full-project `eslint .` and reports pre-existing legacy lint debt in untouched files; no new lint issues were introduced in touched files.
   - **No group changes:** no edits to `group_members`, `group_invites`, `join_group_by_invite_code`, group/trip/event RLS, permission management, or group trip/event sharing.
 
+- **Phase 12D - Group trip/event sharing + RLS.** Group workspaces now share trips and events across active group members while preserving local-first sync.
+  - **RLS/RPC:** new `supabase/migrations/20260618_group_trip_event_sharing.sql` + updated `bootstrap.sql`. `trips` / `trip_events` SELECT is now owner OR active group member; direct INSERT/UPDATE is blocked; replication writes through SECURITY DEFINER RPCs `sync_trip_documents(jsonb)` and `sync_trip_event_documents(jsonb)`.
+  - **Ownership preservation:** pull now includes top-level `user_id`; pulled shared docs keep their original JSON `owner_id` instead of being re-owned by the current session. RPC insert sets top-level `user_id` + JSON `owner_id` to `auth.uid()`. RPC update preserves existing top-level `user_id`, JSON `owner_id`, trip workspace identity, event `trip_id`, and `created_at`.
+  - **Event metadata:** `TRIP_EVENT_SCHEMA` bumped v3->v4 with optional `workspace_type` / `workspace_id`; new events/imports stamp the selected trip's workspace tag. Legacy events remain valid and are authorized from their parent trip.
+  - **Replication:** trips/events replication identifiers bumped to v2 and push via RPC instead of direct `.upsert()`. Personal trips/events continue through the same RxDB collections.
+  - **Historical hydration:** `hydrateGroupWorkspaceContent` fetches visible group trips by `data.workspace_id` and their events by parent `trip_id` when a group workspace opens, covering rows older than a member's replication checkpoint without exposing unrelated groups/personal rows.
+  - **UI:** `TripLibrary` lists all locally visible trips filtered by workspace (not only `owner_id=currentUser`); edit/delete trip controls are shown only for the trip owner. Group invite/create copy updated to reflect shared group trips/events. No permission-management UI added.
+  - **Docs/tests:** Supabase setup/deployment docs updated; new `supabaseRows` tests plus workspace helper tests cover ownership-preserving row mapping and workspace tag behavior.
+  - Build/lint/test result: `npm test` 95/95 passed; targeted eslint passed except the pre-existing `EventModal` `setOpen` warning; build result recorded at phase close.
+- **Phase 12D.3 - Auth email rate-limit UX/docs + responsive timeline/overview polish.** No group sync/RLS/RPC/replication changes.
+  - **Auth UX:** `authRecovery.ts` now exposes one shared email-rate-limit message for signup confirmation and forgot-password email sends. `Auth.tsx` maps signup errors through `describeSignUpError`; forgot-password continues through `describeResetEmailError`. Detection covers HTTP 429, `email rate limit`, `rate limit`, and `rate_limit`. Existing double-submit guards remain in place.
+  - **Timeline width:** `ResponsiveLayout` is wider on tablet/desktop; timeline day columns now have stable responsive widths (`180px` mobile, `200px` tablet, `220px+` desktop) and the day grid uses `min-w-max` inside the horizontal scroller, so long trips scroll instead of squeezing unreadably.
+  - **Overview scrolling:** `TripViewer` day tabs now use native `overflow-x-auto` with a `min-w-max` inner row, keeping all days reachable for long date ranges.
+  - **Docs/tests:** `docs/DEPLOYMENT.md` and `supabase/README.md` document built-in email-provider limits for signup and password recovery, Custom SMTP, Auth Rate Limits, and required `/reset-password` redirects. `authRecovery.test.ts` covers signup/reset rate-limit mapping.
+
 ## Hardcode classification (Phase 9 release audit)
 
 Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` references:
@@ -208,10 +236,10 @@ Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` r
 - **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset/weather implies all trips are Nagoya.
 
 In progress:
-- (none — Phase 12C.1 complete; next planned product phase is Phase 12D group trip/event sharing.)
+- (none - Phase 12D.3 complete; next planned product phase is Phase 12E group permission/lifecycle hardening.)
 
 Next — Post-release backlog / maintenance:
-- **Phase 12D — group trip/event cross-user sharing.** The 12C membership model is the foundation. Plan: stamp `workspace_type`/`workspace_id` onto events (mirroring trips), broaden `trips`/`trip_events` RLS to "owner OR active member of the row's group", and decide whether group content syncs via RxDB (needs a member-safe push path) or a separate online/read model. Also: group leave/delete UI, invite revoke/expiry UI, roles beyond owner/member.
+- **Phase 12E - group permission/lifecycle hardening.** Roles UI, member management, leave/remove member, invite revoke/expiry UI, owner transfer decisions, and finer delete/archive permissions for collaborative group content.
 - Trip **archive/status** (deliberate `trips` schema-version migration).
 - **Backend quota enforcement** (trigger / RPC / RLS / edge function) — frontend quotas are UX-only.
 - **Real trip-level (per-day) weather** forecast.
@@ -221,6 +249,8 @@ Next — Post-release backlog / maintenance:
 
 ## Architecture Changes (running log)
 
+- **Phase 12D.3:** Auth email error handling is centralized in `authRecovery.ts` for both signup and password-reset email sends. Timeline/Overview polish is purely presentational: a wider workspace shell on tablet/desktop, stable responsive timeline day widths, and horizontal overflow for timeline and overview day selectors. No database schema, sync, RLS, RPC, or group permission logic changed.
+- **Phase 12D:** Trips/events are now shared group content when their parent trip belongs to a group workspace. The `trips` and `trip_events` replication push path uses SECURITY DEFINER RPCs instead of direct table upsert, so inserts assign `user_id`/`owner_id` to the creator and updates preserve existing ownership/workspace/parent-trip identity. Pull includes top-level `user_id` and no longer re-owns shared documents locally. Event schema v4 adds optional `workspace_type`/`workspace_id`; parent trip remains the source of truth for legacy events. `AppContent` hydrates group workspaces by fetching visible group trips/events online to cover rows older than the local replication checkpoint.
 - **Phase 1:** Second RxDB collection `trips` alongside `tripevents`. Independent Supabase replication channel (`trips_db_changes`, identifier `supabase-jsonb-trips-v1`). Trips replication failures are isolated from events replication. Legacy trip bootstrap runs once per load (no-op if the trip already exists locally).
 - **Phase 2:** Trip-selection gate in `AppContent` (`selectedTripId` state). New `src/components/Trips/` module (TripLibrary / TripCard / CreateTripModal). TripLibrary is the post-auth landing; the legacy single-trip workspace renders only after a trip is selected. Workspace internals remain legacy-scoped (`TRIP_ID = 'nagoya-2026'`) — selection is an entry point, not yet a data scope. `selectedTripId` is in-memory only (not persisted across reloads).
 - **Phase 3:** Workspace extracted from `App.tsx` into `src/components/TripWorkspace.tsx`, which takes the resolved `trip` object. `App.tsx` is now a thin router (AppShell → AppContent → TripLibrary | TripWorkspace). TripDashboard displays the selected trip's identity. The legacy `TRIP_ID = 'nagoya-2026'` is now isolated in ONE place (`TripWorkspace`) with an explicit Phase 4 TODO block listing every inner view that still depends on it.
@@ -239,6 +269,12 @@ Next — Post-release backlog / maintenance:
 
 ## Known Risks (running log)
 
+- **Phase 12D - group sharing:**
+  - Manual Supabase action required: run `supabase/migrations/20260618_group_trip_event_sharing.sql` before cross-account group trip/event sharing works.
+  - Trip metadata edit/delete remains intentionally conservative: trip owner or group owner through RPC; no role-management UI yet.
+  - Event create/edit is allowed for all active group members for now. Future Phase 12E should add richer roles/capabilities if needed.
+  - Hydration writes visible server rows into local RxDB and may push exact no-op trip rows back; `sync_trip_documents` accepts exact no-op hydration from visible members but rejects real non-owner trip metadata edits.
+  - Membership revocation recovery remains limited: a previously persisted group descriptor may still open an empty/stale workspace until online fetch/RLS denies shared content and the user returns to Workspaces.
 - **Phase 1:**
   - `trips` Supabase table must be created manually; until then cross-device trip sync does not work (local-only, no data loss).
   - RxDB dev-mode schema validation for `TRIP_SCHEMA` was not exercised in this session (the production `build` does not run runtime schema validation, and `npm run dev` requires Supabase env vars). Schema mirrors the proven `TRIP_EVENT_SCHEMA` structure; verify on first `npm run dev`.

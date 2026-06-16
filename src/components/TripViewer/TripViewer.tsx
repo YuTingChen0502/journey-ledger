@@ -5,7 +5,6 @@ import type { TripDocType } from '@/db/tripSchema';
 import { format, parseISO, isValid } from 'date-fns';
 import { MapPin, Info } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import DOMPurify from 'dompurify';
 import { buildTripDays } from '@/lib/dateRange';
 import { tripEventsSelector } from '@/lib/tripScoping';
@@ -80,8 +79,8 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
 
             {/* Day Selector (Tabs) */}
             <div className="bg-background/95 backdrop-blur border-b border-border/50 py-2">
-                <ScrollArea className="w-full whitespace-nowrap">
-                    <div className="flex gap-2 px-6">
+                <div className="w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="flex min-w-max gap-2 px-4 sm:px-6">
                         {days.map(([dateStr], index) => {
                             const date = parseISO(dateStr);
                             const label = `Day ${index + 1}`;
@@ -92,7 +91,7 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
                                 <button
                                     key={dateStr}
                                     onClick={() => setSelectedDay(dateStr)}
-                                    className={`flex flex-col items-center justify-center min-w-[70px] px-3 py-2 rounded-lg transition-all border
+                                    className={`flex min-w-[84px] flex-col items-center justify-center rounded-lg border px-3 py-2 transition-all sm:min-w-[96px]
                                         ${isActive
                                             ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                                             : 'bg-card hover:bg-muted border-transparent text-muted-foreground hover:text-foreground'
@@ -104,8 +103,7 @@ export function TripViewer({ trip, onEventClick }: TripViewerProps) {
                             )
                         })}
                     </div>
-                    <ScrollBar orientation="horizontal" className="hidden" />
-                </ScrollArea>
+                </div>
             </div>
 
             {/* Single Day Content */}

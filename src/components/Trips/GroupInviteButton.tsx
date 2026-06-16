@@ -45,7 +45,7 @@ export function GroupInviteButton({ groupId, ownerId }: GroupInviteButtonProps) 
             toast.success('Invite code copied')
             setTimeout(() => setCopied(false), 1500)
         } catch {
-            toast.error('Could not copy — select and copy manually.')
+            toast.error('Could not copy; select and copy manually.')
         }
     }
 
@@ -80,7 +80,7 @@ export function GroupInviteButton({ groupId, ownerId }: GroupInviteButtonProps) 
                     <div className="flex items-center gap-2">
                         <Input
                             readOnly
-                            value={loading ? 'Loading…' : (code ?? '')}
+                            value={loading ? 'Loading...' : (code ?? '')}
                             className="font-mono tracking-widest text-center text-lg"
                             onFocus={(e) => e.currentTarget.select()}
                         />
@@ -90,7 +90,7 @@ export function GroupInviteButton({ groupId, ownerId }: GroupInviteButtonProps) 
                         </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Group trips &amp; events are not shared across members yet — that arrives in a later phase.
+                        Active members can see shared group trips and events once the Phase 12D migration is applied.
                     </p>
                 </div>
             </DialogContent>

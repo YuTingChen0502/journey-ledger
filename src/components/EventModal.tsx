@@ -37,13 +37,24 @@ type FormData = {
 interface EventModalProps {
     userId: string
     tripId: string
+    workspaceType?: 'personal' | 'group'
+    workspaceId?: string
     eventId?: string | null
     isOpen?: boolean
     onOpenChange?: (open: boolean) => void
     defaultDate?: Date
 }
 
-export function EventModal({ userId, tripId, eventId, isOpen: externalIsOpen, onOpenChange, defaultDate }: EventModalProps) {
+export function EventModal({
+    userId,
+    tripId,
+    workspaceType,
+    workspaceId,
+    eventId,
+    isOpen: externalIsOpen,
+    onOpenChange,
+    defaultDate
+}: EventModalProps) {
     const { t } = useTranslation()
     // Internal state for when used as a trigger-based modal (Create Mode mainly)
     const [internalOpen, setInternalOpen] = useState(false)
@@ -141,6 +152,8 @@ export function EventModal({ userId, tripId, eventId, isOpen: externalIsOpen, on
                     created_at: Date.now(),
                     updated_at: Date.now(),
                     is_deleted: false,
+                    workspace_type: workspaceType,
+                    workspace_id: workspaceId,
                     description: ''
                 });
                 toast.success("Event created");

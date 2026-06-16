@@ -18,6 +18,7 @@ export interface Workspace {
 export interface WorkspaceTaggable {
     workspace_type?: WorkspaceType;
     workspace_id?: string;
+    owner_id?: string;
 }
 
 export const PERSONAL_PREFIX = 'personal:';
@@ -72,6 +73,19 @@ export function isGroupMember(
     return isGroupOwner(group, userId);
 }
 
+/**
+ * Whether the user may edit / soft-delete the GROUP DOCUMENT itself (Phase
+ * 12D.1). This is **owner-only** and is deliberately distinct from group
+ * trip/event collaboration (which is open to any active member). The `groups`
+ * table also enforces owner-only UPDATE via RLS; this helper just gates the UI.
+ */
+export function canManageGroup(
+    group: { owner_id: string; is_deleted?: boolean },
+    userId: string
+): boolean {
+    return isGroupOwner(group, userId);
+}
+
 /** Minimal group shape for listing/merging in WorkspaceHome. */
 export interface GroupSummary {
     id: string;
@@ -112,7 +126,7 @@ export function getTripWorkspace(trip: WorkspaceTaggable, userId: string): Works
         // Group name is not known from the trip alone in 12A; resolved later.
         return { type: 'group', id: trip.workspace_id, name: 'Group' };
     }
-    return getPersonalWorkspace(userId);
+    return getPersonalWorkspace(trip.owner_id || userId);
 }
 
 /** Whether a trip belongs to the given workspace (with personal fallback). */
@@ -122,4 +136,35 @@ export function isTripInWorkspace(
     userId: string
 ): boolean {
     return getTripWorkspace(trip, userId).id === workspace.id;
+}
+
+/**
+ * Whether the current user may edit / soft-delete a trip from the library
+ * (Phase 12D). Group content is collaborative: any active member of the trip's
+ * group may manage it. A group trip only reaches the library / passes
+ * `isTripInWorkspace` when the user is a member, and membership is enforced
+ * server-side by the sync RPC — which preserves ownership on update, so manage
+ * never transfers ownership. Personal trips remain owner-only.
+ */
+export function canManageTrip(
+    trip: WorkspaceTaggable,
+    workspace: Workspace,
+    userId: string
+): boolean {
+    if (workspace.type === 'group') {
+        return isTripInWorkspace(trip, workspace, userId);
+    }
+    return (trip.owner_id ?? userId) === userId;
+}
+
+/** Denormalized workspace tag to stamp onto child rows such as events. */
+export function getWorkspaceTagForTrip(
+    trip: WorkspaceTaggable & { owner_id: string },
+    userId = trip.owner_id
+): Required<Pick<WorkspaceTaggable, 'workspace_type' | 'workspace_id'>> {
+    const workspace = getTripWorkspace(trip, userId);
+    return {
+        workspace_type: workspace.type,
+        workspace_id: workspace.id,
+    };
 }

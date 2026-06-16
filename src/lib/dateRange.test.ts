@@ -29,6 +29,11 @@ describe('buildTripDays', () => {
         expect(days).toHaveLength(1);
     });
 
+    it('falls back to a single day for missing runtime date values', () => {
+        expect(buildTripDays(undefined, '2026-02-07')).toHaveLength(1);
+        expect(buildTripDays(null, null)).toHaveLength(1);
+    });
+
     it('collapses to start day when only the end date is invalid', () => {
         const days = buildTripDays('2026-03-01', 'garbage');
         expect(days).toHaveLength(1);
@@ -58,6 +63,7 @@ describe('isValidTripDateRange', () => {
     });
     it('blocks invalid/empty dates', () => {
         expect(isValidTripDateRange('', '')).toBe(false);
+        expect(isValidTripDateRange(undefined, '2026-06-01')).toBe(false);
         expect(isValidTripDateRange('2026-06-01', 'garbage')).toBe(false);
         expect(isValidTripDateRange('garbage', '2026-06-01')).toBe(false);
     });
