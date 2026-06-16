@@ -10,15 +10,14 @@ import { TripLibrary } from './components/Trips/TripLibrary'
 import { TripWorkspace } from './components/TripWorkspace'
 import { Provider, useRxData } from 'rxdb-hooks'
 import type { TripDocType } from './db/tripSchema'
-import type { GroupDocType } from './db/groupSchema'
 import { SettingsProvider } from './context/SettingsContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import {
   loadSelectedTripId, saveSelectedTripId, clearSelectedTripId,
-  loadSelectedWorkspaceId, saveSelectedWorkspaceId, clearSelectedWorkspaceId,
+  loadSelectedWorkspace, saveSelectedWorkspace, clearSelectedWorkspace,
 } from './lib/selectedTrip'
 import {
-  getPersonalWorkspace, groupWorkspace, isPersonalWorkspaceId, isTripInWorkspace, type Workspace,
+  getPersonalWorkspace, isTripInWorkspace, type Workspace,
 } from './lib/workspace'
 
 function App() {
@@ -78,46 +77,29 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   const { user } = useAuth()
   const userId = user?.id ?? ''
 
-  // Phase 12A/12B: a workspace is selected before All Trips. The selected
-  // workspace ID is persisted; a Personal id is restored synchronously (only if
-  // it matches the current user — no cross-user leak), while a group id is
-  // resolved reactively from the groups collection below.
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(() => {
-    const stored = loadSelectedWorkspaceId()
+  // Phase 12A/12B/12C: a workspace is selected before All Trips. We persist the
+  // full workspace descriptor (id + name + type) and reconstruct the active
+  // workspace synchronously on reload. A Personal id is only restored if it
+  // matches the current user (no cross-user leak). A group workspace is
+  // reconstructed from the stored descriptor — important because a JOINED group
+  // is owner-scoped out of local RxDB and has no local doc to resolve from.
+  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(() => {
+    const stored = loadSelectedWorkspace()
     if (!userId || !stored) return null
-    if (isPersonalWorkspaceId(stored)) return stored === `personal:${userId}` ? stored : null
-    return stored // group id — resolved reactively
+    if (stored.type === 'personal') {
+      return stored.id === `personal:${userId}` ? getPersonalWorkspace(userId) : null
+    }
+    return { type: 'group', id: stored.id, name: stored.name }
   })
 
   // Phase 7: trip selection persisted across reloads — only restored when its
   // workspace selection was also restored above.
   const [selectedTripId, setSelectedTripId] = useState<string | null>(() => {
-    const storedWs = loadSelectedWorkspaceId()
+    const storedWs = loadSelectedWorkspace()
     if (!userId || !storedWs) return null
-    if (isPersonalWorkspaceId(storedWs) && storedWs !== `personal:${userId}`) return null
+    if (storedWs.type === 'personal' && storedWs.id !== `personal:${userId}`) return null
     return loadSelectedTripId()
   })
-
-  const wsIsPersonal = !!selectedWorkspaceId && isPersonalWorkspaceId(selectedWorkspaceId)
-
-  // Resolve a group workspace reactively (we need the group doc for its name).
-  const { result: groupDocs, isFetching: groupFetching } = useRxData<GroupDocType>('groups', collection =>
-    collection.find({
-      selector: {
-        id: { $eq: (selectedWorkspaceId && !wsIsPersonal) ? selectedWorkspaceId : '__none__' },
-        is_deleted: { $eq: false },
-      }
-    })
-  )
-  const groupDoc = (selectedWorkspaceId && !wsIsPersonal) ? (groupDocs[0] ?? null) : null
-
-  // The active workspace object, derived (set by clicks; resolved on reload).
-  const selectedWorkspace: Workspace | null =
-    !selectedWorkspaceId ? null
-      : wsIsPersonal ? getPersonalWorkspace(userId)
-        : groupDoc ? groupWorkspace(groupDoc)
-          : null
-  const resolvingWorkspace = !!selectedWorkspaceId && !wsIsPersonal && !groupDoc && groupFetching
 
   // Resolve the selected trip object reactively. The hook must run on every
   // render (rules of hooks), so a sentinel id is used when nothing is selected.
@@ -136,14 +118,14 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
       : null
 
   const handleSelectWorkspace = (workspace: Workspace) => {
-    saveSelectedWorkspaceId(workspace.id)
-    setSelectedWorkspaceId(workspace.id)
+    saveSelectedWorkspace(workspace)
+    setSelectedWorkspace(workspace)
   }
 
   const handleBackToWorkspaces = () => {
-    clearSelectedWorkspaceId()
+    clearSelectedWorkspace()
     clearSelectedTripId()
-    setSelectedWorkspaceId(null)
+    setSelectedWorkspace(null)
     setSelectedTripId(null)
   }
 
@@ -161,16 +143,11 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   const resolvingTrip = !!selectedTripId && !!selectedWorkspace && isFetching && !selectedTrip
 
   // Graceful recovery (storage cleanup only — view falls through via derived
-  // state; no setState-in-effect, no infinite loading):
-  //  - a persisted group workspace id that resolves to no group → forget it.
-  //  - a persisted trip id that resolves to no in-workspace trip → forget it.
-  useEffect(() => {
-    if (selectedWorkspaceId && !wsIsPersonal && !groupFetching && !groupDoc) {
-      clearSelectedWorkspaceId()
-      clearSelectedTripId()
-    }
-  }, [selectedWorkspaceId, wsIsPersonal, groupFetching, groupDoc])
-
+  // state; no setState-in-effect, no infinite loading): a persisted trip id that
+  // resolves to no in-workspace trip → forget it. (Group workspaces are
+  // reconstructed from their stored descriptor, so there is no "group not found"
+  // local-resolution failure to recover from here — a revoked membership simply
+  // shows an empty/own-only trip list until the user leaves the workspace.)
   useEffect(() => {
     if (selectedTripId && !isFetching && !selectedTrip) {
       clearSelectedTripId()
@@ -178,9 +155,7 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   }, [selectedTripId, isFetching, selectedTrip])
 
   let content: ReactNode
-  if (resolvingWorkspace) {
-    content = <LoadingSkeleton message="Loading workspace..." />
-  } else if (!selectedWorkspace) {
+  if (!selectedWorkspace) {
     content = (
       <WorkspaceHome userId={userId} onSelectWorkspace={handleSelectWorkspace} signOut={signOut} />
     )

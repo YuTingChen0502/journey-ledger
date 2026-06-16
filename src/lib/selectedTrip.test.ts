@@ -2,12 +2,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     SELECTED_TRIP_STORAGE_KEY,
     SELECTED_WORKSPACE_STORAGE_KEY,
+    SELECTED_WORKSPACE_DESC_KEY,
     loadSelectedTripId,
     saveSelectedTripId,
     clearSelectedTripId,
     loadSelectedWorkspaceId,
     saveSelectedWorkspaceId,
     clearSelectedWorkspaceId,
+    saveSelectedWorkspace,
+    loadSelectedWorkspace,
+    clearSelectedWorkspace,
 } from './selectedTrip';
 
 // Minimal in-memory localStorage stub so these tests do not depend on a DOM env.
@@ -75,5 +79,36 @@ describe('selectedTrip persistence helpers', () => {
         clearSelectedTripId();
         expect(loadSelectedTripId()).toBeNull();
         expect(loadSelectedWorkspaceId()).toBe('personal:user-123');
+    });
+
+    // Phase 12C: full workspace descriptor (id + name + type) so a joined group
+    // workspace can be reconstructed on reload without a local RxDB doc.
+    it('saves and loads a group workspace descriptor', () => {
+        saveSelectedWorkspace({ id: 'g-1', name: 'Family', type: 'group' });
+        expect(loadSelectedWorkspace()).toEqual({ id: 'g-1', name: 'Family', type: 'group' });
+        // legacy id key stays in sync for backward compatibility
+        expect(loadSelectedWorkspaceId()).toBe('g-1');
+    });
+
+    it('clears both the descriptor and the legacy id key', () => {
+        saveSelectedWorkspace({ id: 'g-1', name: 'Family', type: 'group' });
+        clearSelectedWorkspace();
+        expect(loadSelectedWorkspace()).toBeNull();
+        expect(loadSelectedWorkspaceId()).toBeNull();
+    });
+
+    it('returns null for a corrupt descriptor value', () => {
+        localStorage.setItem(SELECTED_WORKSPACE_DESC_KEY, '{not json');
+        expect(loadSelectedWorkspace()).toBeNull();
+    });
+
+    it('rejects a descriptor with an invalid type', () => {
+        localStorage.setItem(SELECTED_WORKSPACE_DESC_KEY, JSON.stringify({ id: 'x', name: 'X', type: 'bogus' }));
+        expect(loadSelectedWorkspace()).toBeNull();
+    });
+
+    it('does not persist a descriptor with an empty id', () => {
+        saveSelectedWorkspace({ id: '', name: 'X', type: 'group' });
+        expect(loadSelectedWorkspace()).toBeNull();
     });
 });

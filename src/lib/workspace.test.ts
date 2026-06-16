@@ -6,6 +6,9 @@ import {
     groupWorkspace,
     isPersonalWorkspaceId,
     isGroupMember,
+    isGroupOwner,
+    mergeGroupsById,
+    type GroupSummary,
 } from './workspace';
 
 const USER = 'user-123';
@@ -63,6 +66,48 @@ describe('isGroupMember', () => {
     });
     it('rejects a deleted group', () => {
         expect(isGroupMember({ owner_id: USER, is_deleted: true }, USER)).toBe(false);
+    });
+});
+
+describe('isGroupOwner', () => {
+    it('is true for the owner of a live group', () => {
+        expect(isGroupOwner({ owner_id: USER }, USER)).toBe(true);
+    });
+    it('is false for a non-owner', () => {
+        expect(isGroupOwner({ owner_id: 'other' }, USER)).toBe(false);
+    });
+    it('is false for a deleted group', () => {
+        expect(isGroupOwner({ owner_id: USER, is_deleted: true }, USER)).toBe(false);
+    });
+});
+
+describe('mergeGroupsById (group visibility filtering)', () => {
+    const g = (id: string, owner: string, extra: Partial<GroupSummary> = {}): GroupSummary =>
+        ({ id, name: id.toUpperCase(), owner_id: owner, ...extra });
+
+    it('keeps the first occurrence on duplicate ids (local-first wins)', () => {
+        const local = [g('a', USER, { name: 'Local A' })];
+        const remote = [g('a', USER, { name: 'Remote A' }), g('b', 'other')];
+        const merged = mergeGroupsById(local, remote);
+        expect(merged.map((m) => m.id)).toEqual(['a', 'b']);
+        expect(merged[0].name).toBe('Local A');
+    });
+
+    it('drops soft-deleted groups', () => {
+        const merged = mergeGroupsById([g('a', USER, { is_deleted: true }), g('b', USER)]);
+        expect(merged.map((m) => m.id)).toEqual(['b']);
+    });
+
+    it('combines owned and joined groups into one list', () => {
+        const owned = [g('own', USER)];
+        const joined = [g('joined', 'someone-else')];
+        const merged = mergeGroupsById(owned, joined);
+        expect(merged.map((m) => m.id)).toEqual(['own', 'joined']);
+    });
+
+    it('returns an empty list when given nothing', () => {
+        expect(mergeGroupsById()).toEqual([]);
+        expect(mergeGroupsById([], [])).toEqual([]);
     });
 });
 

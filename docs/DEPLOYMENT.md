@@ -7,8 +7,8 @@ these steps deliberately.
 ## 1. Supabase project setup
 
 - [ ] Create a Supabase project (or reuse an existing one).
-- [ ] Open **SQL Editor** and run [`../supabase/bootstrap.sql`](../supabase/bootstrap.sql). This creates both mirror tables (`trip_events`, `trips`), indexes, RLS policies, and the realtime publication. It is idempotent.
-- [ ] Verify the tables exist (**Table Editor**) with the 5 columns: `id`, `updated_at`, `deleted`, `user_id`, `data`.
+- [ ] Open **SQL Editor** and run [`../supabase/bootstrap.sql`](../supabase/bootstrap.sql). This creates the mirror tables (`trip_events`, `trips`, `groups`), the group membership tables (`group_members`, `group_invites`), the `join_group_by_invite_code` RPC + helpers/trigger, indexes, RLS policies, and the realtime publication. It is idempotent. *(An already-deployed project upgrading to Phase 12C should instead run [`../supabase/migrations/20260617_group_members_invites.sql`](../supabase/migrations/20260617_group_members_invites.sql) — required before cross-account invite-code joining works.)*
+- [ ] Verify the mirror tables exist (**Table Editor**) with the 5 columns: `id`, `updated_at`, `deleted`, `user_id`, `data`.
 - [ ] Verify **RLS is enabled** on both tables (**Authentication → Policies**), each with SELECT / INSERT / UPDATE policies scoped to `auth.uid() = user_id`, and **no DELETE policy** (soft-delete via `deleted = true`).
 - [ ] Verify **Realtime** includes both tables (**Database → Publications → `supabase_realtime`**).
 - [ ] Configure Auth providers (email/OAuth as desired).

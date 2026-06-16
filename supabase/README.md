@@ -7,9 +7,12 @@ cannot create tables itself).
 
 | Scenario | Run this |
 |----------|----------|
-| **Brand-new / fresh Supabase project** | `bootstrap.sql` — provisions everything (`trip_events` + `trips` + `groups`, indexes, RLS, realtime) in one idempotent script. |
+| **Brand-new / fresh Supabase project** | `bootstrap.sql` — provisions everything (`trip_events` + `trips` + `groups` + `group_members` + `group_invites`, helpers, the join RPC, indexes, RLS, realtime) in one idempotent script. |
 | **Existing project that already has `trip_events`** (legacy Nagoya setup) | `migrations/20260615_create_trips.sql` — adds the `trips` table. |
 | **Existing project that needs group workspaces (Phase 12B)** | `migrations/20260616_create_groups.sql` — adds the `groups` table. |
+| **Existing project enabling group membership + invites (Phase 12C)** | `migrations/20260617_group_members_invites.sql` — adds `group_members` + `group_invites`, the `join_group_by_invite_code` RPC, the owner-membership trigger, and **widens the `groups` SELECT policy to owner-OR-member**. |
+
+> ⚠️ **Phase 12C manual action:** run `migrations/20260617_group_members_invites.sql` (or the updated `bootstrap.sql`) in the Supabase SQL Editor **before testing invite-code joining across accounts**. Until applied, group creation still works locally but joins will fail and joined groups won't appear.
 
 Both scripts are idempotent and safe to re-run.
 
@@ -25,7 +28,16 @@ Both scripts are idempotent and safe to re-run.
 |------|---------|
 | `bootstrap.sql` | Full bootstrap for a fresh project: `trip_events` + `trips` + `groups` tables, indexes, RLS policies, realtime publication. |
 | `migrations/20260615_create_trips.sql` | Phase 1 incremental: `trips` table only (for projects that already had `trip_events`). |
-| `migrations/20260616_create_groups.sql` | Phase 12B incremental: `groups` table only. **Owner-scoped RLS — not yet real group sharing** (no `group_members`, no invite codes, no cross-user access). |
+| `migrations/20260616_create_groups.sql` | Phase 12B incremental: `groups` table only. **Owner-scoped RLS** (superseded by Phase 12C, which widens group visibility to members). |
+| `migrations/20260617_group_members_invites.sql` | Phase 12C incremental: `group_members` + `group_invites` tables, `is_group_member` / `is_group_owner` helpers, owner-membership trigger, `join_group_by_invite_code` RPC, and the widened `groups` SELECT policy. **Membership + group visibility only — group trips/events remain owner-scoped (Phase 12D).** |
+
+### Group membership & invites (Phase 12C)
+
+- **Visibility:** the `groups` SELECT policy is **owner OR active member** (`is_group_member`). A user sees a group once they own it or have an active `group_members` row for it.
+- **Membership writes are server-only:** the creator's `owner` membership is created by an `AFTER INSERT` trigger on `groups`; non-owners join **only** through the SECURITY DEFINER RPC `join_group_by_invite_code(invite_code text)`. There is **no** client INSERT/UPDATE/DELETE policy on `group_members`.
+- **Invite codes:** owner-managed rows in `group_invites` (owner-only SELECT/INSERT/UPDATE). The owner's client generates a short code and inserts it; ordinary users can never list codes, only redeem one via the RPC.
+- **Local-first split:** owned groups still sync via RxDB (offline-capable). **Joined** groups are read **online** (`src/services/groups.ts` → `fetchVisibleGroups`) because a member can't push a group they don't own without an ownership conflict — the RxDB `groups` pull is explicitly filtered to `user_id = auth.uid()`.
+- **Still deferred to Phase 12D:** cross-user **group trip/event** sharing. `trip_events` / `trips` RLS is unchanged and remains owner-scoped, so a joined member sees only their own (currently empty) trips for that group.
 
 ## Sync contract
 

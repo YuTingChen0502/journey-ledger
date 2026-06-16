@@ -283,9 +283,16 @@ export const startGroupsReplication = async (collection: RxCollection<GroupDocTy
             handler: async (checkpoint, batchSize) => {
                 const updatedAt = checkpoint ? checkpoint.updated_at : 0;
 
+                // Phase 12C: the `groups` SELECT RLS is widened to "owner OR
+                // active member", so we MUST filter to own rows explicitly here.
+                // Otherwise this owner-scoped local-first channel would pull
+                // joined groups too, overwrite their owner_id locally, and risk
+                // a push-back ownership conflict. Joined (member) groups are read
+                // online instead — see src/services/groups.ts.
                 const { data, error } = await supabase
                     .from('groups')
                     .select('id, updated_at, deleted, data')
+                    .eq('user_id', userId)
                     .gt('updated_at', updatedAt)
                     .order('updated_at', { ascending: true })
                     .limit(batchSize);

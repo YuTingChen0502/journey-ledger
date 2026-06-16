@@ -59,3 +59,46 @@ export function saveSelectedWorkspaceId(id: string): void {
 export function clearSelectedWorkspaceId(): void {
     removeKey(SELECTED_WORKSPACE_STORAGE_KEY);
 }
+
+// Phase 12C: persist the full selected workspace descriptor (id + name + type),
+// not just the id. A JOINED group workspace is not present in the local RxDB
+// `groups` collection (it's owner-scoped), so on reload we reconstruct the
+// active group workspace from this descriptor instead of resolving a local doc.
+export const SELECTED_WORKSPACE_DESC_KEY = 'journey_ledger_selected_workspace';
+
+export interface StoredWorkspace {
+    id: string;
+    name: string;
+    type: 'personal' | 'group';
+}
+
+export function saveSelectedWorkspace(ws: StoredWorkspace): void {
+    if (!ws?.id) return;
+    // Keep the legacy id key in sync for backward compatibility.
+    writeKey(SELECTED_WORKSPACE_STORAGE_KEY, ws.id);
+    try {
+        localStorage.setItem(SELECTED_WORKSPACE_DESC_KEY, JSON.stringify(ws));
+    } catch {
+        // best-effort
+    }
+}
+
+export function loadSelectedWorkspace(): StoredWorkspace | null {
+    const raw = readKey(SELECTED_WORKSPACE_DESC_KEY);
+    if (!raw) return null;
+    try {
+        const parsed = JSON.parse(raw) as Partial<StoredWorkspace>;
+        if (parsed && typeof parsed.id === 'string' && typeof parsed.name === 'string'
+            && (parsed.type === 'personal' || parsed.type === 'group')) {
+            return parsed as StoredWorkspace;
+        }
+    } catch {
+        // corrupt value — treat as no selection
+    }
+    return null;
+}
+
+export function clearSelectedWorkspace(): void {
+    removeKey(SELECTED_WORKSPACE_STORAGE_KEY);
+    removeKey(SELECTED_WORKSPACE_DESC_KEY);
+}

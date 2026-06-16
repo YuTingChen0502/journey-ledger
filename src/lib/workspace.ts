@@ -46,14 +46,60 @@ export function isPersonalWorkspaceId(id: string): boolean {
 }
 
 /**
- * Whether a user is a member of a group. Phase 12B: membership == ownership
- * (groups are owner-scoped only). Real shared membership comes later.
+ * Whether a user OWNS a group. (An owner is always a member.) Useful on the
+ * client where we only have the group record, not the membership table — e.g.
+ * to gate owner-only actions like generating an invite code.
+ */
+export function isGroupOwner(
+    group: { owner_id: string; is_deleted?: boolean },
+    userId: string
+): boolean {
+    return !group.is_deleted && group.owner_id === userId;
+}
+
+/**
+ * Whether a user is a member of a group.
+ *
+ * NOTE: real membership (Phase 12C) lives in the `group_members` table and is
+ * resolved server-side (the join RPC + member-aware RLS). With only a group
+ * record on hand we can confirm ownership, which always implies membership.
+ * Kept for the cases where ownership is the relevant question.
  */
 export function isGroupMember(
     group: { owner_id: string; is_deleted?: boolean },
     userId: string
 ): boolean {
-    return !group.is_deleted && group.owner_id === userId;
+    return isGroupOwner(group, userId);
+}
+
+/** Minimal group shape for listing/merging in WorkspaceHome. */
+export interface GroupSummary {
+    id: string;
+    name: string;
+    description?: string;
+    owner_id: string;
+    is_deleted?: boolean;
+}
+
+/**
+ * Merge several group lists into one visible list (Phase 12C). Used to combine
+ * the user's own groups (local-first, RxDB) with groups they've joined
+ * (resolved online via Supabase). Soft-deleted groups are dropped; duplicates
+ * are deduped by id, keeping the first occurrence (so the local-first copy
+ * wins). Order is preserved from the input order.
+ */
+export function mergeGroupsById(...lists: GroupSummary[][]): GroupSummary[] {
+    const seen = new Set<string>();
+    const out: GroupSummary[] = [];
+    for (const list of lists) {
+        for (const group of list) {
+            if (group.is_deleted) continue;
+            if (seen.has(group.id)) continue;
+            seen.add(group.id);
+            out.push(group);
+        }
+    }
+    return out;
 }
 
 /**
