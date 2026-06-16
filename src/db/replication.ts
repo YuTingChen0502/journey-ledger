@@ -3,6 +3,7 @@ import { replicateRxCollection } from 'rxdb/plugins/replication';
 import { supabase } from '../services/supabase';
 import type { TripEventDocType } from './schema';
 import type { TripDocType } from './tripSchema';
+import type { GroupDocType } from './groupSchema';
 import { Subject } from 'rxjs';
 
 const REPLICATION_SIZE = 100;
@@ -238,6 +239,121 @@ export const startTripsReplication = async (collection: RxCollection<TripDocType
         .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trips' },
+            () => {
+                replicationState.reSync();
+            }
+        )
+        .subscribe();
+
+    return replicationState;
+};
+
+// ---------------------------------------------------------------------------
+// Groups replication (Phase 12B)
+//
+// Same local-first + Supabase JSONB pattern as trips, targeting the dedicated
+// `groups` table. Owner-scoped only (no real sharing yet). Independent of the
+// trips/events channels so a missing `groups` table cannot break them.
+// ---------------------------------------------------------------------------
+
+type GroupCheckpoint = { updated_at: number };
+
+interface GroupSupabaseRow {
+    id: string;
+    updated_at: number;
+    deleted: boolean;
+    data: Partial<GroupDocType>;
+}
+
+export const startGroupsReplication = async (collection: RxCollection<GroupDocType>) => {
+    const session = await supabase.auth.getSession();
+    const userId = session.data.session?.user?.id;
+
+    if (!userId) {
+        console.warn('Groups replication skipped: No User ID');
+        return null;
+    }
+
+    console.log('Starting Supabase Groups Replication for User:', userId);
+
+    const replicationState = await replicateRxCollection<GroupDocType, GroupCheckpoint>({
+        collection,
+        replicationIdentifier: 'supabase-jsonb-groups-v1',
+        pull: {
+            handler: async (checkpoint, batchSize) => {
+                const updatedAt = checkpoint ? checkpoint.updated_at : 0;
+
+                const { data, error } = await supabase
+                    .from('groups')
+                    .select('id, updated_at, deleted, data')
+                    .gt('updated_at', updatedAt)
+                    .order('updated_at', { ascending: true })
+                    .limit(batchSize);
+
+                if (error) {
+                    console.error('Supabase Groups Pull Error:', error);
+                    throw error;
+                }
+
+                const rows = (data ?? []) as unknown as GroupSupabaseRow[];
+
+                const documents = rows.map((row) => ({
+                    ...row.data,
+                    id: row.id,
+                    updated_at: row.updated_at,
+                    is_deleted: row.deleted,
+                    _deleted: row.deleted,
+                    owner_id: userId // Ensure ownership is consistent locally
+                })) as (GroupDocType & { _deleted: boolean })[];
+
+                return {
+                    documents,
+                    checkpoint: rows.length > 0
+                        ? { updated_at: rows[rows.length - 1].updated_at }
+                        : (checkpoint ?? { updated_at: 0 })
+                };
+            }
+        },
+        push: {
+            handler: async (docs) => {
+                const rows = docs.map((d) => {
+                    const doc = d.newDocumentState;
+                    const { id, updated_at, is_deleted, ...rest } = doc;
+
+                    return {
+                        id,
+                        updated_at,
+                        deleted: is_deleted,
+                        user_id: userId, // Enforce User ID from session
+                        data: rest
+                    };
+                });
+
+                const { error } = await supabase
+                    .from('groups')
+                    .upsert(rows);
+
+                if (error) {
+                    console.error('Supabase Groups Push Error:', error);
+                    throw error;
+                }
+
+                return [];
+            },
+            batchSize: REPLICATION_SIZE,
+            modifier: (doc) => doc
+        },
+        live: true,
+        waitForLeadership: false,
+        autoStart: true
+    });
+
+    // Realtime Subscription
+    supabase
+        .channel('groups_db_changes')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'groups' },
             () => {
                 replicationState.reSync();
             }

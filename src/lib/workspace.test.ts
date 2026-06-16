@@ -3,6 +3,9 @@ import {
     getPersonalWorkspace,
     getTripWorkspace,
     isTripInWorkspace,
+    groupWorkspace,
+    isPersonalWorkspaceId,
+    isGroupMember,
 } from './workspace';
 
 const USER = 'user-123';
@@ -38,8 +41,35 @@ describe('getTripWorkspace (fallback)', () => {
     });
 });
 
+describe('groupWorkspace', () => {
+    it('builds a group workspace from a group record', () => {
+        expect(groupWorkspace({ id: 'g-1', name: 'Family' })).toEqual({ type: 'group', id: 'g-1', name: 'Family' });
+    });
+});
+
+describe('isPersonalWorkspaceId', () => {
+    it('detects personal ids', () => {
+        expect(isPersonalWorkspaceId('personal:user-123')).toBe(true);
+        expect(isPersonalWorkspaceId('g-1')).toBe(false);
+    });
+});
+
+describe('isGroupMember', () => {
+    it('treats the owner as a member', () => {
+        expect(isGroupMember({ owner_id: USER }, USER)).toBe(true);
+    });
+    it('rejects a non-owner', () => {
+        expect(isGroupMember({ owner_id: 'someone-else' }, USER)).toBe(false);
+    });
+    it('rejects a deleted group', () => {
+        expect(isGroupMember({ owner_id: USER, is_deleted: true }, USER)).toBe(false);
+    });
+});
+
 describe('isTripInWorkspace', () => {
     const personal = getPersonalWorkspace(USER);
+    const groupA = groupWorkspace({ id: 'g-A', name: 'A' });
+    const groupB = groupWorkspace({ id: 'g-B', name: 'B' });
 
     it('matches a legacy (untagged) trip to Personal', () => {
         expect(isTripInWorkspace({}, personal, USER)).toBe(true);
@@ -50,11 +80,18 @@ describe('isTripInWorkspace', () => {
     });
 
     it('does NOT match a group trip to the Personal workspace (no leak)', () => {
-        expect(isTripInWorkspace({ workspace_type: 'group', workspace_id: 'group:abc' }, personal, USER)).toBe(false);
+        expect(isTripInWorkspace({ workspace_type: 'group', workspace_id: 'g-A' }, personal, USER)).toBe(false);
+    });
+
+    it('does NOT match a legacy trip to a group workspace', () => {
+        expect(isTripInWorkspace({}, groupA, USER)).toBe(false);
     });
 
     it('matches a group trip to its own group workspace', () => {
-        const group = { type: 'group' as const, id: 'group:abc', name: 'Group' };
-        expect(isTripInWorkspace({ workspace_type: 'group', workspace_id: 'group:abc' }, group, USER)).toBe(true);
+        expect(isTripInWorkspace({ workspace_type: 'group', workspace_id: 'g-A' }, groupA, USER)).toBe(true);
+    });
+
+    it('does NOT match a group trip to a different group (no leak)', () => {
+        expect(isTripInWorkspace({ workspace_type: 'group', workspace_id: 'g-A' }, groupB, USER)).toBe(false);
     });
 });

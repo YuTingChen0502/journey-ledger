@@ -7,8 +7,9 @@ cannot create tables itself).
 
 | Scenario | Run this |
 |----------|----------|
-| **Brand-new / fresh Supabase project** | `bootstrap.sql` — provisions everything (`trip_events` + `trips`, indexes, RLS, realtime) in one idempotent script. |
-| **Existing project that already has `trip_events`** (legacy Nagoya setup) | `migrations/20260615_create_trips.sql` — adds only the new `trips` table. |
+| **Brand-new / fresh Supabase project** | `bootstrap.sql` — provisions everything (`trip_events` + `trips` + `groups`, indexes, RLS, realtime) in one idempotent script. |
+| **Existing project that already has `trip_events`** (legacy Nagoya setup) | `migrations/20260615_create_trips.sql` — adds the `trips` table. |
+| **Existing project that needs group workspaces (Phase 12B)** | `migrations/20260616_create_groups.sql` — adds the `groups` table. |
 
 Both scripts are idempotent and safe to re-run.
 
@@ -22,8 +23,9 @@ Both scripts are idempotent and safe to re-run.
 
 | File | Purpose |
 |------|---------|
-| `bootstrap.sql` | Full bootstrap for a fresh project: `trip_events` + `trips` tables, indexes, RLS policies, realtime publication. |
+| `bootstrap.sql` | Full bootstrap for a fresh project: `trip_events` + `trips` + `groups` tables, indexes, RLS policies, realtime publication. |
 | `migrations/20260615_create_trips.sql` | Phase 1 incremental: `trips` table only (for projects that already had `trip_events`). |
+| `migrations/20260616_create_groups.sql` | Phase 12B incremental: `groups` table only. **Owner-scoped RLS — not yet real group sharing** (no `group_members`, no invite codes, no cross-user access). |
 
 ## Sync contract
 

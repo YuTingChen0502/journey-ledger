@@ -1,7 +1,10 @@
-import { LogOut, User, Users, Plus, LogIn } from 'lucide-react'
+import { useRxData } from 'rxdb-hooks'
+import { LogOut, User, Users, LogIn } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { getPersonalWorkspace, type Workspace } from '@/lib/workspace'
+import type { GroupDocType } from '@/db/groupSchema'
+import { getPersonalWorkspace, groupWorkspace, type Workspace } from '@/lib/workspace'
+import { CreateGroupModal } from '@/components/Trips/CreateGroupModal'
 
 interface WorkspaceHomeProps {
     userId: string
@@ -11,6 +14,17 @@ interface WorkspaceHomeProps {
 
 export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceHomeProps) {
     const personal = getPersonalWorkspace(userId)
+
+    // The current user's own (non-deleted) groups.
+    const { result: groups, isFetching } = useRxData<GroupDocType>('groups', (collection) =>
+        collection.find({
+            selector: {
+                is_deleted: { $eq: false },
+                owner_id: { $eq: userId },
+            },
+            sort: [{ updated_at: 'desc' }],
+        })
+    )
 
     return (
         <div className="h-full w-full overflow-y-auto bg-background">
@@ -55,28 +69,61 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                     </Card>
                 </section>
 
-                {/* Groups (coming soon — not functional in this phase) */}
+                {/* Groups */}
                 <section className="space-y-3">
-                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Groups</h2>
-                    <Card className="border-dashed border bg-muted/20 p-6 flex flex-col items-center text-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                            <Users className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                        <div className="space-y-1">
-                            <h3 className="text-base font-serif font-semibold text-foreground">Group workspaces are coming soon</h3>
-                            <p className="text-sm text-muted-foreground max-w-md">
-                                Share trips and plan together with others. This is not available yet.
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                            <Button variant="outline" size="sm" className="gap-2" disabled>
-                                <Plus className="w-4 h-4" /> Create Group
-                            </Button>
-                            <Button variant="outline" size="sm" className="gap-2" disabled>
+                    <div className="flex items-center justify-between gap-2">
+                        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Groups</h2>
+                        <div className="flex items-center gap-2">
+                            <CreateGroupModal ownerId={userId} onCreated={onSelectWorkspace} />
+                            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" disabled title="Coming soon">
                                 <LogIn className="w-4 h-4" /> Join Group
                             </Button>
                         </div>
-                    </Card>
+                    </div>
+
+                    {isFetching ? (
+                        <p className="text-muted-foreground text-sm">Loading groups…</p>
+                    ) : groups.length === 0 ? (
+                        <Card className="border-dashed border bg-muted/20 p-6 flex flex-col items-center text-center gap-3">
+                            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                                <Users className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-base font-serif font-semibold text-foreground">No groups yet</h3>
+                                <p className="text-sm text-muted-foreground max-w-md">
+                                    Create a group workspace to organize trips separately from your personal ones. Sharing &amp; invites are coming in a later phase.
+                                </p>
+                            </div>
+                        </Card>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {groups.map((group) => (
+                                <Card
+                                    key={group.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => onSelectWorkspace(groupWorkspace(group))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            onSelectWorkspace(groupWorkspace(group))
+                                        }
+                                    }}
+                                    className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-5 flex items-center gap-4"
+                                >
+                                    <div className="h-11 w-11 rounded-full bg-[rgba(249,115,22,0.1)] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                                        <Users className="h-5 w-5 text-[#c2410c]" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h3 className="text-base font-serif font-semibold text-foreground truncate">{group.name}</h3>
+                                        {group.description
+                                            ? <p className="text-sm text-muted-foreground truncate">{group.description}</p>
+                                            : <p className="text-sm text-muted-foreground/70">Group workspace</p>}
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
                 </section>
             </div>
         </div>

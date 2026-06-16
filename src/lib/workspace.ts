@@ -31,6 +31,31 @@ export function getPersonalWorkspace(userId: string): Workspace {
     };
 }
 
+/** A group workspace built from a group record. */
+export function groupWorkspace(group: { id: string; name: string }): Workspace {
+    return {
+        type: 'group',
+        id: group.id,
+        name: group.name,
+    };
+}
+
+/** Whether a workspace id refers to a personal workspace. */
+export function isPersonalWorkspaceId(id: string): boolean {
+    return id.startsWith(PERSONAL_PREFIX);
+}
+
+/**
+ * Whether a user is a member of a group. Phase 12B: membership == ownership
+ * (groups are owner-scoped only). Real shared membership comes later.
+ */
+export function isGroupMember(
+    group: { owner_id: string; is_deleted?: boolean },
+    userId: string
+): boolean {
+    return !group.is_deleted && group.owner_id === userId;
+}
+
 /**
  * The workspace a trip belongs to. Backward-compatible: a trip missing
  * `workspace_type`/`workspace_id` (or explicitly `personal`) is treated as the

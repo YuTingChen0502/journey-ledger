@@ -64,10 +64,11 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 * **Phase 10:** Archive/Status + final hardening.
 * **Phase 11:** post-RC UX polish (double-submit guards, no Nagoya auto-seed, responsive top-nav, logo, responsive timeline density).
 * **Phase 12A:** Workspace abstraction foundation (WorkspaceHome + Personal workspace; trip workspace metadata; NO real group sharing yet).
+* **Phase 12B:** Groups shell and local group model (groups collection + replication; Create Group; group-scoped TripLibrary; still NO real multi-user sharing/RLS/invite codes).
 
 ## Phase Status
 
-Current phase: Phase 12A complete — Release Candidate (workspace abstraction foundation in place)
+Current phase: Phase 12B complete — Release Candidate (group workspace shell + local group model in place)
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -160,6 +161,15 @@ Completed:
   - **Navigation:** `TripLibrary` shows "{workspace.name} Trips" + a "Workspaces" back button (`onBackToWorkspaces` clears workspace + trip → WorkspaceHome). `TripWorkspace` upward nav unchanged (Back → trip dashboard, logo/All-Trips → library of the current workspace). New i18n key `nav.workspaces` (en + zh-TW).
   - **Tests:** new `workspace.test.ts` (11) covering personal id, group/legacy fallback, and no-leak `isTripInWorkspace`; `selectedTrip.test.ts` gained workspace-persistence cases. **51 tests pass** (was 39).
   - Build/lint/test result: build passed; `npm test` 51/51; targeted eslint — touched files introduce **no new** errors (the 10 remaining in `db/index.ts` are pre-existing `no-explicit-any` legacy debt; my migration line is typed `Record<string, unknown>`).
+- **Phase 12B — groups shell and local group model.** Adds group workspaces as a local-first data + UI foundation. **Still NOT real collaboration**: no `group_members` table, no invite codes, no Supabase RPC, no group RLS beyond own-row, no cross-user access, no roles.
+  - **Group model:** new `src/db/groupSchema.ts` (`GroupDocType` + `GROUP_SCHEMA` v0: `id, name, description?, created_by, owner_id, created_at, updated_at, is_deleted`). Registered as a third RxDB collection in `db/index.ts`. A group is **owner-scoped only** (effectively owned by its creator).
+  - **Replication:** new `startGroupsReplication` in `db/replication.ts` — same typed JSONB mirror pattern as trips, table `groups`, identifier `supabase-jsonb-groups-v1`, channel `groups_db_changes`. Started after auth, independent of trips/events (a missing `groups` table can't break them). **Supabase:** `groups` table added to `supabase/bootstrap.sql` + new `supabase/migrations/20260616_create_groups.sql` (own-row RLS, realtime) + README note (clearly marked "not yet real sharing").
+  - **Workspace model:** `src/lib/workspace.ts` gained `groupWorkspace(group)`, `isPersonalWorkspaceId(id)`, `isGroupMember(group, userId)` (membership == ownership for now). Group workspace object is `{ type:'group', id: group.id, name: group.name }`.
+  - **UI:** new `src/components/Trips/CreateGroupModal.tsx` (name required + optional description; auto-enters the new group). `WorkspaceHome` now lists the user's groups as cards, has a **Create Group** button, and a disabled **Join Group** ("coming soon") placeholder. Selecting a group opens `TripLibrary(group workspace)`; the header shows the group name; the "Workspaces" back button returns to WorkspaceHome.
+  - **Scoping & no leak:** trips created in a group are stamped `workspace_type:'group'` + `workspace_id:group.id` (CreateTripModal already stamps the active workspace). TripLibrary filters by `isTripInWorkspace`, so Personal trips and Group trips never appear in each other's library; legacy untagged trips remain Personal-only.
+  - **Persistence/recovery:** `AppContent` now persists the workspace id (personal or group). A **group** id is resolved reactively from the groups collection (needed for its name); if it no longer resolves (deleted/removed) the stored ids are cleared and the view falls through to WorkspaceHome (derived state — no setState-in-effect, no infinite loading). A selected trip is still accepted only if `isTripInWorkspace` for the active workspace.
+  - **Tests:** `workspace.test.ts` extended (groupWorkspace, isPersonalWorkspaceId, isGroupMember, and group/personal/other-group/legacy `isTripInWorkspace` no-leak matrix). **58 tests pass** (was 51).
+  - Build/lint/test result: build passed; `npm test` 58/58; targeted eslint — touched files introduce **no new** errors (the 13 remaining are pre-existing `no-explicit-any` in `db/index.ts` + the events path of `db/replication.ts`; the new `startGroupsReplication` is fully typed).
 
 ## Hardcode classification (Phase 9 release audit)
 
@@ -196,6 +206,7 @@ Next — Post-release backlog / maintenance:
 - **Phase 10:** No architecture change — deployment readiness only. `vercel.json` SPA rewrite (+`$schema`), expanded `docs/DEPLOYMENT.md` (Vercel + Supabase Auth URLs + two-account RLS isolation test + multi-device sync test + iPhone install). App is a Release Candidate.
 - **Phase 11:** UX polish. **Auto-seed removed** — `App.tsx` no longer calls `ensureLegacyTrip()`; new users get an empty library (existing trips persist via replication). New responsive timeline-density layer: `useTimelineScale()` hook is the single source of truth for pixels-per-minute, threaded through TimelineView/DayColumn/TimelineEvent (desktop unchanged, tablet/mobile compacted). Auth/EventModal/ImportModal gained double-submit guards. Top-nav row is horizontally scrollable on mobile. No schema/replication changes; Phase 4 isolation + Phase 7 edit/delete/persistence intact.
 - **Phase 12A:** Workspace layer above All Trips. `AppContent` now routes WorkspaceHome → TripLibrary(workspace) → TripWorkspace, with workspace + trip persisted (and validated against the current user / current workspace so selections can't leak across workspaces). New `src/lib/workspace.ts` (Workspace model + personal-fallback helpers) and `src/components/Workspaces/WorkspaceHome.tsx`. `trips` schema bumped v0→v1 (optional `workspace_type`/`workspace_id`, no-op migration); replication unchanged (JSONB). Personal flow behaves exactly like the previous app; Groups are a non-functional placeholder.
+- **Phase 12B:** Third RxDB collection `groups` (owner-scoped) with its own Supabase JSONB replication channel (`groups_db_changes`, identifier `supabase-jsonb-groups-v1`), independent of trips/events. `WorkspaceHome` lists groups + Create Group; selecting a group opens a group-scoped `TripLibrary`. `AppContent` persists the workspace id and resolves a **group** workspace reactively from the collection (Personal resolves synchronously from userId); recovery clears storage and falls through to WorkspaceHome. Group affordances exist but sharing is still local/owner-only (no `group_members`, RLS-beyond-own-row, invite codes, or RPC).
 
 ## Known Risks (running log)
 
@@ -240,6 +251,11 @@ Next — Post-release backlog / maintenance:
   - Soft-deleting a trip **does not delete its events** (they remain under their `trip_id`, just hidden because no non-deleted trip references them in the library). Intentional MVP; optional cascade soft-delete is a future opt-in.
   - Recovery clears only the persisted localStorage id, not the in-memory `selectedTripId` state; the derived view shows the library. Edge: if a soft-deleted trip is later un-deleted (e.g. external re-sync) within the same session, the workspace could reappear. Extremely unlikely; harmless.
   - Cross-device race: on reload, a persisted trip not yet pulled from Supabase could briefly recover to the library before sync completes (local-first). Acceptable (no infinite load); local/legacy trips are present immediately.
+- **Phase 12B — groups shell (NOT real sharing):**
+  - Groups are **owner-scoped only**. A group is visible solely to its creator (own-row RLS + local cleanRoom). There is **no shared membership, no invite codes, no group RLS beyond own-row, no cross-user access, no roles** — do NOT treat group workspaces as a collaboration/security boundary yet.
+  - **Manual Supabase action:** a fresh project's `bootstrap.sql` now includes `groups`; an existing project must run `supabase/migrations/20260616_create_groups.sql`. Until applied, groups work fully locally; groups replication logs an error and no-ops (no data loss), exactly like trips in Phase 1.
+  - New RxDB collection `groups` (v0). Adding a brand-new collection needs no migration; existing local DBs simply gain the collection on next init. Verify on first `npm run dev`.
+  - No group deletion/archive UI yet (a group can be soft-deleted only via direct data edit). `getTripWorkspace` still returns a placeholder name `'Group'` for a group-tagged trip when resolved without the group doc; the live UI resolves the real name from the collection.
 - **Phase 12A — workspace foundation:**
   - **RxDB `trips` schema is now version 1.** First boot after this change migrates existing local trip docs (no-op strategy). Verify on first `npm run dev` that the migration runs cleanly; if a local DB was created mid-development at v0, RxDB handles it via the registered strategy. No Supabase change.
   - Only the **Personal** workspace exists. Group affordances are disabled placeholders; selecting a group is not possible yet. `getTripWorkspace` returns a minimally-named `'Group'` for group-tagged trips (real group names arrive with the groups model in a later phase).

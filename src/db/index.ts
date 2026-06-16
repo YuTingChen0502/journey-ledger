@@ -7,6 +7,7 @@ import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder';
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema';
 import { TRIP_EVENT_SCHEMA } from './schema';
 import { TRIP_SCHEMA } from './tripSchema';
+import { GROUP_SCHEMA } from './groupSchema';
 
 addRxPlugin(RxDBUpdatePlugin);
 addRxPlugin(RxDBQueryBuilderPlugin);
@@ -79,6 +80,9 @@ export const initDB = async () => {
                             return oldDoc;
                         }
                     }
+                },
+                groups: {
+                    schema: GROUP_SCHEMA
                 }
             });
 
@@ -99,6 +103,15 @@ export const initDB = async () => {
                     console.log('Trips replication started');
                 } catch (err) {
                     console.error('Failed to start trips replication:', err);
+                }
+
+                // Groups replication (Phase 12B). Independent of trips/events so a
+                // missing `groups` Supabase table cannot break them.
+                try {
+                    await module.startGroupsReplication(db.groups);
+                    console.log('Groups replication started');
+                } catch (err) {
+                    console.error('Failed to start groups replication:', err);
                 }
             });
 

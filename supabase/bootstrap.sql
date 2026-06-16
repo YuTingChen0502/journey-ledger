@@ -59,6 +59,15 @@ create table if not exists public.trips (
     data        jsonb       not null default '{}'::jsonb
 );
 
+-- Phase 12B: groups. Owner-scoped only for now (NOT yet real shared groups).
+create table if not exists public.groups (
+    id          text        primary key,
+    updated_at  bigint      not null,
+    deleted     boolean     not null default false,
+    user_id     uuid        not null references auth.users (id) on delete cascade,
+    data        jsonb       not null default '{}'::jsonb
+);
+
 
 -- =============================================================================
 -- 2. INDEXES
@@ -71,6 +80,9 @@ create index if not exists trip_events_user_id_idx    on public.trip_events (use
 create index if not exists trips_updated_at_idx on public.trips (updated_at);
 create index if not exists trips_user_id_idx    on public.trips (user_id);
 
+create index if not exists groups_updated_at_idx on public.groups (updated_at);
+create index if not exists groups_user_id_idx    on public.groups (user_id);
+
 
 -- =============================================================================
 -- 3. ROW LEVEL SECURITY
@@ -78,6 +90,7 @@ create index if not exists trips_user_id_idx    on public.trips (user_id);
 
 alter table public.trip_events enable row level security;
 alter table public.trips       enable row level security;
+alter table public.groups      enable row level security;
 
 -- --- trip_events ------------------------------------------------------------
 drop policy if exists "Users can select their own trip_events" on public.trip_events;
@@ -113,6 +126,26 @@ create policy "Users can update their own trips"
     using (auth.uid() = user_id)
     with check (auth.uid() = user_id);
 
+-- --- groups ------------------------------------------------------------------
+-- NOTE (Phase 12B): own-row access only. This is NOT yet real group sharing —
+-- a group is visible only to its creator. Shared membership / invite-code access
+-- will require a `group_members` table and broader policies in a later phase.
+drop policy if exists "Users can select their own groups" on public.groups;
+create policy "Users can select their own groups"
+    on public.groups for select
+    using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own groups" on public.groups;
+create policy "Users can insert their own groups"
+    on public.groups for insert
+    with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own groups" on public.groups;
+create policy "Users can update their own groups"
+    on public.groups for update
+    using (auth.uid() = user_id)
+    with check (auth.uid() = user_id);
+
 
 -- =============================================================================
 -- 4. REALTIME PUBLICATION
@@ -139,9 +172,18 @@ begin
     ) then
         alter publication supabase_realtime add table public.trips;
     end if;
+
+    if not exists (
+        select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = 'groups'
+    ) then
+        alter publication supabase_realtime add table public.groups;
+    end if;
 end
 $$;
 
 -- =============================================================================
--- Done. Both tables are provisioned with RLS + realtime.
+-- Done. trip_events, trips, and groups are provisioned with RLS + realtime.
 -- =============================================================================
