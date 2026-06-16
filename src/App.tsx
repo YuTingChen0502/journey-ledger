@@ -8,10 +8,12 @@ import { LoadingSkeleton } from './components/LoadingSkeleton'
 import { WorkspaceHome } from './components/Workspaces/WorkspaceHome'
 import { TripLibrary } from './components/Trips/TripLibrary'
 import { TripWorkspace } from './components/TripWorkspace'
+import { ResetPasswordView } from './components/ResetPasswordView'
 import { Provider, useRxData } from 'rxdb-hooks'
 import type { TripDocType } from './db/tripSchema'
 import { SettingsProvider } from './context/SettingsContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { PASSWORD_RESET_PATH } from './lib/authRecovery'
 import {
   loadSelectedTripId, saveSelectedTripId, clearSelectedTripId,
   loadSelectedWorkspace, saveSelectedWorkspace, clearSelectedWorkspace,
@@ -31,11 +33,23 @@ function App() {
 function AppShell() {
   const { session, loading, signOut } = useAuth()
   const [db, setDb] = useState<RxDatabase | null>(null)
+  const [pathname, setPathname] = useState(() => window.location.pathname)
+
+  useEffect(() => {
+    const handlePopState = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  const handleBackToLogin = () => {
+    window.history.replaceState(null, '', '/')
+    setPathname(window.location.pathname)
+  }
 
   // DB Initialization: Only start when we have a session to ensure replication has context.
   // The singleton in initDB makes this safe to call repeatedly.
   useEffect(() => {
-    if (session?.user?.id) {
+    if (session?.user?.id && pathname !== PASSWORD_RESET_PATH) {
       initDB().then((database) => {
         setDb(database);
         // Phase 11: no auto-seeding. New users start with an empty TripLibrary;
@@ -46,20 +60,23 @@ function AppShell() {
         console.error('DB Init Failed', err);
       });
     }
-  }, [session]);
+  }, [session, pathname]);
 
   // Splash Screen Logic
   useEffect(() => {
-    if (!loading && (db || !session)) {
+    if (!loading && (db || !session || pathname === PASSWORD_RESET_PATH)) {
       const timer = setTimeout(() => {
         const splash = document.getElementById('splash');
         if (splash) splash.classList.add('hidden');
       }, 500); // 500ms min show time for aesthetic
       return () => clearTimeout(timer);
     }
-  }, [loading, db, session]);
+  }, [loading, db, session, pathname]);
 
   if (loading) return <LoadingSkeleton message="Authenticating..." />
+  if (pathname === PASSWORD_RESET_PATH) {
+    return <ResetPasswordView canUpdatePassword={!!session} onBackToLogin={handleBackToLogin} />
+  }
   if (!session) return <Auth />
   if (!db) return <LoadingSkeleton message="Loading Database..." />
 

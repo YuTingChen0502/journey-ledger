@@ -1,6 +1,6 @@
-# CLAUDE.md — Journey Ledger Project Instructions
+# AGENTS.md — Journey Ledger Project Instructions
 
-This file is the persistent source of truth for future Claude Code sessions. Read it before making changes. Keep it current (see **Update Policy**).
+This file is the persistent source of truth for future Codex sessions. Read it before making changes. Keep it current (see **Update Policy**).
 
 ## Project Identity
 
@@ -51,7 +51,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 
 ## Phase Plan
 
-* **Phase 0:** v2 baseline, metadata rebrand, create `CLAUDE.md`.
+* **Phase 0:** v2 baseline, metadata rebrand, create `AGENTS.md`.
 * **Phase 1:** add `trips` data model.
 * **Phase 2:** add TripLibrary.
 * **Phase 3:** add TripWorkspace.
@@ -73,7 +73,7 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 Current phase: Phase 12C.1 complete — auth recovery polish (forgot-password + reset-password flow; group collaboration/RLS unchanged → Phase 12D)
 
 Completed:
-- **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
+- **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `AGENTS.md` created. Runtime behavior unchanged; single-trip behavior preserved.
   - Build/lint/test result: build passed; lint has pre-existing legacy errors only (no new errors introduced); no test script exists yet.
 - **Phase 1 — `trips` data model.** Added a first-class `trips` model while preserving single-trip behavior.
   - **Persistence decision:** local-first RxDB `trips` collection + Supabase `trips` mirror table, using the same JSONB pattern as `trip_events` (`id`, `updated_at`, `deleted`, `user_id`, `data jsonb`). Trips are NOT stored inside `trip_events`; trips are NOT local-only.
@@ -310,7 +310,7 @@ Next — Post-release backlog / maintenance:
 
 ## Update Policy
 
-Future Claude Code sessions **must** keep this file current. Do not let `CLAUDE.md` become stale.
+Future Codex sessions **must** keep this file current. Do not let `AGENTS.md` become stale.
 
 When a phase is completed:
 * Update the **Phase Status** section.

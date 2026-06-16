@@ -17,6 +17,17 @@ these steps deliberately.
   - **Redirect URLs** → add the production URL (e.g. `https://your-app.vercel.app/**`). You may keep `http://localhost:5173/**` for local dev.
   - These must match the origin the app is served from, or magic-link / OAuth redirects will fail in production.
 
+For password recovery, Supabase Auth **Redirect URLs** must also include:
+
+```text
+https://<production-domain>/reset-password
+https://<production-domain>/**
+http://localhost:5173/reset-password
+http://localhost:5173/**
+```
+
+Do not hardcode the production domain in app code; Journey Ledger builds the reset redirect from `window.location.origin`.
+
 See [`../supabase/README.md`](../supabase/README.md) for the full column contract and RLS expectations.
 
 ## 2. Environment variables
@@ -58,6 +69,7 @@ Journey Ledger is a static SPA/PWA — host the build output on any static host
 
 - [ ] App loads; the splash screen clears.
 - [ ] Sign up / sign in works (Supabase Auth).
+- [ ] Forgot password sends a Supabase reset email; the link returns to `/reset-password`; setting a new password succeeds; signing in with the new password works.
 - [ ] TripLibrary loads — a brand-new account shows the empty-state onboarding (no auto-seeded trip); existing accounts show their synced trips.
 - [ ] Create a trip → it appears in the library.
 - [ ] Open a trip → Journal and Planning render for the trip's date range.
