@@ -16,6 +16,10 @@ export type Trip = {
     created_at: number;
     updated_at: number;
     is_deleted: boolean;
+    // Phase 12A: workspace metadata (backward-compatible / optional).
+    // Trips missing these are treated as the owner's Personal workspace.
+    workspace_type?: 'personal' | 'group';
+    workspace_id?: string;
 };
 
 // RxDB document type. Mirrors `Trip` exactly; kept as a separate alias so the
@@ -23,7 +27,7 @@ export type Trip = {
 export type TripDocType = Trip;
 
 export const TRIP_SCHEMA = {
-    version: 0,
+    version: 1,
     primaryKey: 'id',
     type: 'object',
     properties: {
@@ -65,6 +69,12 @@ export const TRIP_SCHEMA = {
         },
         is_deleted: {
             type: 'boolean'
+        },
+        workspace_type: {
+            type: 'string'
+        },
+        workspace_id: {
+            type: 'string'
         }
     },
     required: ['id', 'owner_id', 'title', 'start_date', 'end_date', 'created_at', 'updated_at', 'is_deleted'],

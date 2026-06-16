@@ -1,9 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
     SELECTED_TRIP_STORAGE_KEY,
+    SELECTED_WORKSPACE_STORAGE_KEY,
     loadSelectedTripId,
     saveSelectedTripId,
     clearSelectedTripId,
+    loadSelectedWorkspaceId,
+    saveSelectedWorkspaceId,
+    clearSelectedWorkspaceId,
 } from './selectedTrip';
 
 // Minimal in-memory localStorage stub so these tests do not depend on a DOM env.
@@ -48,5 +52,28 @@ describe('selectedTrip persistence helpers', () => {
     it('treats an empty stored string as no selection', () => {
         localStorage.setItem(SELECTED_TRIP_STORAGE_KEY, '');
         expect(loadSelectedTripId()).toBeNull();
+    });
+
+    // Phase 12A: workspace identity persistence
+    it('saves and loads a selected workspace id', () => {
+        saveSelectedWorkspaceId('personal:user-123');
+        expect(localStorage.getItem(SELECTED_WORKSPACE_STORAGE_KEY)).toBe('personal:user-123');
+        expect(loadSelectedWorkspaceId()).toBe('personal:user-123');
+    });
+
+    it('ignores an empty workspace id and clears it', () => {
+        saveSelectedWorkspaceId('');
+        expect(loadSelectedWorkspaceId()).toBeNull();
+        saveSelectedWorkspaceId('personal:user-123');
+        clearSelectedWorkspaceId();
+        expect(loadSelectedWorkspaceId()).toBeNull();
+    });
+
+    it('keeps trip and workspace selections independent', () => {
+        saveSelectedTripId('trip-1');
+        saveSelectedWorkspaceId('personal:user-123');
+        clearSelectedTripId();
+        expect(loadSelectedTripId()).toBeNull();
+        expect(loadSelectedWorkspaceId()).toBe('personal:user-123');
     });
 });

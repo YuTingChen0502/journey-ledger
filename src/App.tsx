@@ -5,13 +5,18 @@ import { initDB } from './db'
 import { Auth } from './components/Auth'
 import { Toaster } from "@/components/ui/sonner"
 import { LoadingSkeleton } from './components/LoadingSkeleton'
+import { WorkspaceHome } from './components/Workspaces/WorkspaceHome'
 import { TripLibrary } from './components/Trips/TripLibrary'
 import { TripWorkspace } from './components/TripWorkspace'
 import { Provider, useRxData } from 'rxdb-hooks'
 import type { TripDocType } from './db/tripSchema'
 import { SettingsProvider } from './context/SettingsContext'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { loadSelectedTripId, saveSelectedTripId, clearSelectedTripId } from './lib/selectedTrip'
+import {
+  loadSelectedTripId, saveSelectedTripId, clearSelectedTripId,
+  loadSelectedWorkspaceId, saveSelectedWorkspaceId, clearSelectedWorkspaceId,
+} from './lib/selectedTrip'
+import { getPersonalWorkspace, isTripInWorkspace, type Workspace } from './lib/workspace'
 
 function App() {
   return (
@@ -65,10 +70,27 @@ function AppShell() {
   )
 }
 
-// App flow: Auth -> TripLibrary -> TripWorkspace(selectedTrip)
+// App flow: Auth -> WorkspaceHome -> TripLibrary(workspace) -> TripWorkspace(selectedTrip)
 function AppContent({ signOut }: { signOut: () => Promise<void> }) {
-  // Phase 7: trip selection is persisted across reloads (id only).
-  const [selectedTripId, setSelectedTripId] = useState<string | null>(() => loadSelectedTripId())
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
+
+  // Phase 12A: a workspace is selected before All Trips. Only Personal is real
+  // today. The persisted selection (workspace + trip) is restored on reload, but
+  // only if the stored workspace belongs to the current user (no cross-user leak).
+  const [selectedWorkspace, setSelectedWorkspace] = useState<Workspace | null>(() => {
+    const storedWs = loadSelectedWorkspaceId()
+    if (userId && storedWs === `personal:${userId}`) return getPersonalWorkspace(userId)
+    return null
+  })
+
+  // Phase 7: trip selection persisted across reloads — only restored when its
+  // workspace was also restored above.
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(() => {
+    const storedWs = loadSelectedWorkspaceId()
+    if (userId && storedWs === `personal:${userId}`) return loadSelectedTripId()
+    return null
+  })
 
   // Resolve the selected trip object reactively. The hook must run on every
   // render (rules of hooks), so a sentinel id is used when nothing is selected.
@@ -78,7 +100,25 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
       selector: { id: { $eq: selectedTripId ?? '__none__' }, is_deleted: { $eq: false } }
     })
   )
-  const selectedTrip = selectedTripId ? (tripDocs[0] ?? null) : null
+  const resolvedTrip = selectedTripId ? (tripDocs[0] ?? null) : null
+  // Only accept the trip if it belongs to the selected workspace — a persisted
+  // trip id from another workspace must not leak into this one.
+  const selectedTrip =
+    resolvedTrip && selectedWorkspace && isTripInWorkspace(resolvedTrip, selectedWorkspace, userId)
+      ? resolvedTrip
+      : null
+
+  const handleSelectWorkspace = (workspace: Workspace) => {
+    saveSelectedWorkspaceId(workspace.id)
+    setSelectedWorkspace(workspace)
+  }
+
+  const handleBackToWorkspaces = () => {
+    clearSelectedWorkspaceId()
+    clearSelectedTripId()
+    setSelectedWorkspace(null)
+    setSelectedTripId(null)
+  }
 
   const handleSelectTrip = (tripId: string) => {
     saveSelectedTripId(tripId)
@@ -91,13 +131,13 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   }
 
   // Still resolving the persisted/selected trip from the local DB.
-  const resolvingTrip = !!selectedTripId && isFetching && !selectedTrip
+  const resolvingTrip = !!selectedTripId && !!selectedWorkspace && isFetching && !selectedTrip
 
   // Graceful recovery: a persisted/selected trip id that resolves to no
-  // non-deleted document (deleted or removed externally) is dropped from
-  // storage so a future reload starts at TripLibrary. We only clear the
-  // persisted id here (a side effect); the view falls through to the library
-  // below via derived state, avoiding both infinite loading and setState-in-effect.
+  // non-deleted document in this workspace (deleted, removed, or belonging to a
+  // different workspace) is dropped from storage so a future reload starts at
+  // the library. We only clear the persisted id here (a side effect); the view
+  // falls through via derived state — no infinite loading, no setState-in-effect.
   useEffect(() => {
     if (selectedTripId && !isFetching && !selectedTrip) {
       clearSelectedTripId()
@@ -105,7 +145,11 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   }, [selectedTripId, isFetching, selectedTrip])
 
   let content: ReactNode
-  if (selectedTrip) {
+  if (!selectedWorkspace) {
+    content = (
+      <WorkspaceHome userId={userId} onSelectWorkspace={handleSelectWorkspace} signOut={signOut} />
+    )
+  } else if (selectedTrip) {
     content = (
       <TripWorkspace
         key={selectedTrip.id}
@@ -117,7 +161,14 @@ function AppContent({ signOut }: { signOut: () => Promise<void> }) {
   } else if (resolvingTrip) {
     content = <LoadingSkeleton message="Loading trip..." />
   } else {
-    content = <TripLibrary onSelectTrip={handleSelectTrip} signOut={signOut} />
+    content = (
+      <TripLibrary
+        workspace={selectedWorkspace}
+        onSelectTrip={handleSelectTrip}
+        onBackToWorkspaces={handleBackToWorkspaces}
+        signOut={signOut}
+      />
+    )
   }
 
   return (

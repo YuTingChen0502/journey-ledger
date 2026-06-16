@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRxData, useRxCollection } from 'rxdb-hooks'
-import { LogOut, Luggage } from 'lucide-react'
+import { LogOut, Luggage, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
     AlertDialog,
@@ -17,16 +17,19 @@ import type { TripDocType } from '@/db/tripSchema'
 import { useAuth } from '@/context/AuthContext'
 import { useTranslation } from '@/hooks/useTranslation'
 import { loadSelectedTripId, clearSelectedTripId } from '@/lib/selectedTrip'
+import { isTripInWorkspace, type Workspace } from '@/lib/workspace'
 import { TripCard } from './TripCard'
 import { CreateTripModal } from './CreateTripModal'
 import { EditTripModal } from './EditTripModal'
 
 interface TripLibraryProps {
+    workspace: Workspace
     onSelectTrip: (tripId: string) => void
+    onBackToWorkspaces: () => void
     signOut: () => Promise<void>
 }
 
-export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
+export function TripLibrary({ workspace, onSelectTrip, onBackToWorkspaces, signOut }: TripLibraryProps) {
     const { user } = useAuth()
     const { t } = useTranslation()
     const ownerId = user?.id ?? ''
@@ -69,7 +72,7 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
 
     // Only this user's non-deleted trips. Replication already scopes by user via
     // RLS, but we filter locally too for correctness and clarity.
-    const { result: trips, isFetching } = useRxData<TripDocType>('trips', (collection) =>
+    const { result: ownedTrips, isFetching } = useRxData<TripDocType>('trips', (collection) =>
         collection.find({
             selector: {
                 is_deleted: { $eq: false },
@@ -79,14 +82,31 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
         })
     )
 
+    // Phase 12A: scope to the active workspace. Trips missing workspace fields
+    // fall back to Personal, so existing trips appear under Personal.
+    const trips = useMemo(
+        () => ownedTrips.filter((trip) => isTripInWorkspace(trip, workspace, ownerId)),
+        [ownedTrips, workspace, ownerId]
+    )
+
     return (
         <div className="h-full w-full overflow-y-auto bg-background">
-            <div className="max-w-5xl mx-auto px-6 py-10 space-y-10">
+            <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+                {/* Back to workspaces */}
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-muted-foreground hover:text-foreground -ml-2"
+                    onClick={onBackToWorkspaces}
+                >
+                    <ChevronLeft className="h-4 w-4" /> {t('nav.workspaces')}
+                </Button>
+
                 {/* Header */}
                 <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                         <h1 className="text-3xl md:text-4xl font-serif font-bold text-primary tracking-tight">
-                            Journey Ledger
+                            {workspace.name} Trips
                         </h1>
                         <p className="text-sm text-muted-foreground uppercase tracking-widest">
                             All Trips
@@ -96,7 +116,7 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <CreateTripModal ownerId={ownerId} onCreated={onSelectTrip} />
+                        <CreateTripModal workspace={workspace} ownerId={ownerId} onCreated={onSelectTrip} />
                         <Button variant="ghost" size="icon" onClick={() => signOut()} title="Sign Out">
                             <LogOut className="w-4 h-4 text-muted-foreground" />
                         </Button>
@@ -117,7 +137,7 @@ export function TripLibrary({ onSelectTrip, signOut }: TripLibraryProps) {
                                 Journey Ledger keeps a journal and plan for each trip. Create your first trip to get started — everything works offline and syncs when you reconnect.
                             </p>
                         </div>
-                        <CreateTripModal ownerId={ownerId} onCreated={onSelectTrip} />
+                        <CreateTripModal workspace={workspace} ownerId={ownerId} onCreated={onSelectTrip} />
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

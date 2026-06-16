@@ -63,10 +63,11 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 * **Phase 9:** Weather / Location cleanup.
 * **Phase 10:** Archive/Status + final hardening.
 * **Phase 11:** post-RC UX polish (double-submit guards, no Nagoya auto-seed, responsive top-nav, logo, responsive timeline density).
+* **Phase 12A:** Workspace abstraction foundation (WorkspaceHome + Personal workspace; trip workspace metadata; NO real group sharing yet).
 
 ## Phase Status
 
-Current phase: Release Candidate / Manual Deployment
+Current phase: Phase 12A complete — Release Candidate (workspace abstraction foundation in place)
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -150,6 +151,15 @@ Completed:
   - **Logo:** `public/logo.svg` redesigned to a bolder filled gold pin + ledger baseline on wine (legible at favicon size; no castle/copyright). All refs already point to `/logo.svg`.
   - **Responsive timeline density:** new `src/hooks/useTimelineScale.ts` (`useSyncExternalStore` on matchMedia) is the single source of truth for pixels-per-minute — desktop 2.0 (120px/hr, unchanged), tablet 1.0 (60px/hr), mobile 0.8 (48px/hr); 5-min steps stay integer px. Threaded through `TimelineView` (grid height, hour axis, event positioning, drag deltas, snap modifier), `DayColumn` (`hourHeight` prop), and `TimelineEvent` (`ppm` prop for resize math). Event card padding/title font compacted on mobile. Drag/drop, resize, and floating/backlog preserved.
   - Build/lint/test result: build passed; `npm test` 39/39; touched files introduce **no new** lint issues (the only flags — EventModal `setOpen` warning + TimelineEvent `Date.now()` purity at 151:33 — are pre-existing legacy debt present since the Phase 0 baseline).
+- **Phase 12A — workspace abstraction foundation.** Inserts a workspace selection layer above All Trips. Foundation only — **no real group sharing, no groups/group_members tables, no invite codes, no group RLS/RPC**.
+  - **New flow:** Auth → `WorkspaceHome` → `TripLibrary(workspace)` → `TripWorkspace(selectedTrip)`. Currently only the **Personal** workspace is real; the Groups section is a disabled "coming soon" placeholder (non-functional Create/Join Group buttons).
+  - **Workspace model:** new `src/lib/workspace.ts` — `Workspace { type:'personal'|'group', id, name }` + `getPersonalWorkspace(userId)` (id `personal:${userId}`), `getTripWorkspace(trip,userId)`, `isTripInWorkspace(trip,workspace,userId)`. **Backward-compatible fallback:** a trip missing `workspace_*` (or explicitly personal) belongs to the owner's Personal workspace.
+  - **Trip schema (v0→v1):** added optional `workspace_type?: 'personal'|'group'` + `workspace_id?: string` to `TRIP_SCHEMA` and `Trip`. Bumped `version` to 1 with a **no-op migration strategy** (`db/index.ts`: `1: (oldDoc) => oldDoc`) — existing local trips migrate untouched and resolve to Personal via fallback. Supabase needs **no** change (fields ride in the existing JSONB `data` column).
+  - **Scoping:** `TripLibrary` takes a `workspace` prop, queries the user's non-deleted trips, then filters by `isTripInWorkspace` (existing untagged trips show under Personal). `CreateTripModal` takes the `workspace` and stamps `workspace_type`/`workspace_id` on new trips.
+  - **Persistence + no leak:** `src/lib/selectedTrip.ts` gained `*SelectedWorkspaceId` helpers (key `journey_ledger_selected_workspace_id`). `AppContent` restores workspace + trip on reload **only if the stored workspace belongs to the current user** (`personal:${userId}` match), and a resolved trip is accepted **only if `isTripInWorkspace`** — a persisted trip from another workspace cannot leak in. Recovery (clear stored id, fall through to library) preserved; no setState-in-effect.
+  - **Navigation:** `TripLibrary` shows "{workspace.name} Trips" + a "Workspaces" back button (`onBackToWorkspaces` clears workspace + trip → WorkspaceHome). `TripWorkspace` upward nav unchanged (Back → trip dashboard, logo/All-Trips → library of the current workspace). New i18n key `nav.workspaces` (en + zh-TW).
+  - **Tests:** new `workspace.test.ts` (11) covering personal id, group/legacy fallback, and no-leak `isTripInWorkspace`; `selectedTrip.test.ts` gained workspace-persistence cases. **51 tests pass** (was 39).
+  - Build/lint/test result: build passed; `npm test` 51/51; targeted eslint — touched files introduce **no new** errors (the 10 remaining in `db/index.ts` are pre-existing `no-explicit-any` legacy debt; my migration line is typed `Record<string, unknown>`).
 
 ## Hardcode classification (Phase 9 release audit)
 
@@ -185,6 +195,7 @@ Next — Post-release backlog / maintenance:
 - **Phase 9:** Mock trip weather removed. TripViewer no longer renders trip-level weather (the `WEATHER_FORECAST` Nagoya mock is deleted); the only weather in the app is real, event-coordinate-based Open-Meteo data in `EventDetailView`/`SpotWeather`/`useSpotWeather` (keyless, hidden when no coordinates). Geocoding unchanged (Open-Meteo + Nominatim, keyless). No schema/replication changes.
 - **Phase 10:** No architecture change — deployment readiness only. `vercel.json` SPA rewrite (+`$schema`), expanded `docs/DEPLOYMENT.md` (Vercel + Supabase Auth URLs + two-account RLS isolation test + multi-device sync test + iPhone install). App is a Release Candidate.
 - **Phase 11:** UX polish. **Auto-seed removed** — `App.tsx` no longer calls `ensureLegacyTrip()`; new users get an empty library (existing trips persist via replication). New responsive timeline-density layer: `useTimelineScale()` hook is the single source of truth for pixels-per-minute, threaded through TimelineView/DayColumn/TimelineEvent (desktop unchanged, tablet/mobile compacted). Auth/EventModal/ImportModal gained double-submit guards. Top-nav row is horizontally scrollable on mobile. No schema/replication changes; Phase 4 isolation + Phase 7 edit/delete/persistence intact.
+- **Phase 12A:** Workspace layer above All Trips. `AppContent` now routes WorkspaceHome → TripLibrary(workspace) → TripWorkspace, with workspace + trip persisted (and validated against the current user / current workspace so selections can't leak across workspaces). New `src/lib/workspace.ts` (Workspace model + personal-fallback helpers) and `src/components/Workspaces/WorkspaceHome.tsx`. `trips` schema bumped v0→v1 (optional `workspace_type`/`workspace_id`, no-op migration); replication unchanged (JSONB). Personal flow behaves exactly like the previous app; Groups are a non-functional placeholder.
 
 ## Known Risks (running log)
 
@@ -229,6 +240,11 @@ Next — Post-release backlog / maintenance:
   - Soft-deleting a trip **does not delete its events** (they remain under their `trip_id`, just hidden because no non-deleted trip references them in the library). Intentional MVP; optional cascade soft-delete is a future opt-in.
   - Recovery clears only the persisted localStorage id, not the in-memory `selectedTripId` state; the derived view shows the library. Edge: if a soft-deleted trip is later un-deleted (e.g. external re-sync) within the same session, the workspace could reappear. Extremely unlikely; harmless.
   - Cross-device race: on reload, a persisted trip not yet pulled from Supabase could briefly recover to the library before sync completes (local-first). Acceptable (no infinite load); local/legacy trips are present immediately.
+- **Phase 12A — workspace foundation:**
+  - **RxDB `trips` schema is now version 1.** First boot after this change migrates existing local trip docs (no-op strategy). Verify on first `npm run dev` that the migration runs cleanly; if a local DB was created mid-development at v0, RxDB handles it via the registered strategy. No Supabase change.
+  - Only the **Personal** workspace exists. Group affordances are disabled placeholders; selecting a group is not possible yet. `getTripWorkspace` returns a minimally-named `'Group'` for group-tagged trips (real group names arrive with the groups model in a later phase).
+  - Cross-user safety: a persisted workspace id is only restored when it equals `personal:${currentUserId}`; on a different user (same browser) it is ignored. `cleanRoom` already wipes the local DB on login, so trip data does not cross users; the workspace persistence guard covers the localStorage side.
+  - Backend group RLS / sharing is intentionally absent — do NOT assume group workspaces are secure until a later phase adds `groups`/`group_members` tables + RLS.
 - **Phase 8 — release polish:**
   - PWA manifest now uses a single **SVG** icon (`image/svg+xml`, `sizes:any`, `purpose:any maskable`). Modern browsers accept this for install; if a target platform requires raster PWA icons (e.g. older Android/iOS home-screen rendering), add 192/512 PNGs later. No store submission depends on this today.
   - `apple-touch-icon` now points to the SVG; iOS historically prefers PNG for the home-screen icon — acceptable for now, revisit in an asset pass if iOS install fidelity matters.

@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import type { TripDocType } from '@/db/tripSchema'
 import { canCreateTrip, QUOTAS } from '@/lib/quotas'
 import { isValidTripDateRange } from '@/lib/dateRange'
+import type { Workspace } from '@/lib/workspace'
 
 type CreateTripFormData = {
     title: string
@@ -37,6 +38,7 @@ type CreateTripFormData = {
 }
 
 interface CreateTripModalProps {
+    workspace: Workspace
     ownerId: string
     onCreated?: (tripId: string) => void
 }
@@ -49,7 +51,7 @@ const defaultTimezone = (): string => {
     }
 }
 
-export function CreateTripModal({ ownerId, onCreated }: CreateTripModalProps) {
+export function CreateTripModal({ workspace, ownerId, onCreated }: CreateTripModalProps) {
     const [open, setOpen] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const collection = useRxCollection<TripDocType>('trips')
@@ -99,6 +101,9 @@ export function CreateTripModal({ ownerId, onCreated }: CreateTripModalProps) {
                 created_at: now,
                 updated_at: now,
                 is_deleted: false,
+                // Phase 12A: tag the trip with the workspace it was created in.
+                workspace_type: workspace.type,
+                workspace_id: workspace.id,
             }
             await collection.insert(trip)
             toast.success('Trip created')

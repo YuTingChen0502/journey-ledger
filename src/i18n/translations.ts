@@ -26,6 +26,7 @@ export const translations = {
 
         // Navigation
         "nav.all_trips": "All Trips",
+        "nav.workspaces": "Workspaces",
         "nav.back": "Back",
         "nav.home": "Home",
         "nav.journal": "Journal",
@@ -165,6 +166,7 @@ export const translations = {
 
         // Navigation
         "nav.all_trips": "所有旅行",
+        "nav.workspaces": "工作區",
         "nav.back": "上一頁",
         "nav.home": "首頁",
         "nav.journal": "日誌",

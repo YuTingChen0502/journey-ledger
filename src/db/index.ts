@@ -70,7 +70,15 @@ export const initDB = async () => {
                     }
                 },
                 trips: {
-                    schema: TRIP_SCHEMA
+                    schema: TRIP_SCHEMA,
+                    migrationStrategies: {
+                        // 1: Phase 12A — add optional workspace_type/workspace_id.
+                        // Existing trips keep no workspace fields and are treated
+                        // as the owner's Personal workspace via fallback helpers.
+                        1: function (oldDoc: Record<string, unknown>) {
+                            return oldDoc;
+                        }
+                    }
                 }
             });
 
