@@ -267,7 +267,17 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
 
     const mainContent: ReactNode =
         contentBranch === 'dashboard' ? (
-            <TripDashboard trip={trip} onBack={onBackToTrips} />
+            <TripDashboard trip={trip} onBack={onBackToTrips} onNavigate={(view) => {
+                if (view === 'planner') {
+                    setPlanningView('timeline')
+                    setMode('planning')
+                } else if (view === 'table') {
+                    setPlanningView('table')
+                    setMode('planning')
+                } else {
+                    setMode(view)
+                }
+            }} />
         ) : contentBranch === 'overview' ? (
             <TripViewer trip={trip} onEventClick={handleEventClick} />
         ) : contentBranch === 'planning:timeline' ? (

@@ -1,3 +1,4 @@
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CalendarDays, Map, ChevronLeft } from "lucide-react"
 import { format, parseISO } from "date-fns"
@@ -6,6 +7,7 @@ import { useTranslation } from "@/hooks/useTranslation"
 import type { TripDocType } from "@/db/tripSchema"
 
 interface TripDashboardProps {
+    onNavigate: (view: 'overview' | 'table' | 'planner') => void;
     onBack?: () => void;
     trip?: TripDocType;
 }
@@ -19,7 +21,7 @@ const formatDate = (value: string): string => {
     }
 };
 
-export function TripDashboard({ onBack, trip }: TripDashboardProps) {
+export function TripDashboard({ onNavigate, onBack, trip }: TripDashboardProps) {
     const { t } = useTranslation();
 
     // Phase 3: show the selected trip's details when available, otherwise fall
@@ -60,36 +62,37 @@ export function TripDashboard({ onBack, trip }: TripDashboardProps) {
                 </div>
             </div>
 
-            {/* Trip summary */}
-            <div className="w-full max-w-3xl px-4">
-                <div className="grid gap-4 rounded-lg border border-border bg-white/80 p-6 text-left shadow-sm md:grid-cols-3">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                            <Map className="h-4 w-4" />
-                            Destination
-                        </div>
-                        <p className="text-sm font-medium text-foreground">
-                            {trip?.destination || "Not set"}
+            {/* Main sections */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl px-4">
+                <Card
+                    className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-8 flex flex-col items-center justify-center gap-6 min-h-[280px]"
+                    onClick={() => onNavigate('overview')}
+                >
+                    <div className="h-20 w-20 rounded-full bg-[rgba(20,184,166,0.1)] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Map className="h-10 w-10 text-[#0f766e]" />
+                    </div>
+                    <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-serif font-semibold text-foreground">{t('dashboard.overview.title')}</h3>
+                        <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">
+                            {t('dashboard.overview.desc')}
                         </p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                            <CalendarDays className="h-4 w-4" />
-                            Dates
-                        </div>
-                        <p className="text-sm font-medium text-foreground">
-                            {dateRange}
+                </Card>
+
+                <Card
+                    className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-none bg-white/80 p-8 flex flex-col items-center justify-center gap-6 min-h-[280px]"
+                    onClick={() => onNavigate('planner')}
+                >
+                    <div className="h-20 w-20 rounded-full bg-[rgba(249,115,22,0.1)] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <CalendarDays className="h-10 w-10 text-[#c2410c]" />
+                    </div>
+                    <div className="text-center space-y-2">
+                        <h3 className="text-2xl font-serif font-semibold text-foreground">{t('dashboard.planning.title')}</h3>
+                        <p className="text-sm text-muted-foreground max-w-[200px] leading-relaxed">
+                            {t('dashboard.planning.desc')}
                         </p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                            Workspace
-                        </div>
-                        <p className="text-sm font-medium text-foreground">
-                            Ready
-                        </p>
-                    </div>
-                </div>
+                </Card>
             </div>
 
             <p className="text-xs text-muted-foreground/50 absolute bottom-6">
