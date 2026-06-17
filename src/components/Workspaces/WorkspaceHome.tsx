@@ -24,7 +24,9 @@ import { CreateGroupModal } from '@/components/Trips/CreateGroupModal'
 import { JoinGroupModal } from '@/components/Trips/JoinGroupModal'
 import { GroupInviteButton } from '@/components/Trips/GroupInviteButton'
 import { EditGroupModal } from '@/components/Trips/EditGroupModal'
+import { GlobalSettingsControl } from '@/components/Home/GlobalSettingsControl'
 import { fetchVisibleGroups } from '@/services/groups'
+import { useTranslation } from '@/hooks/useTranslation'
 
 interface WorkspaceHomeProps {
     userId: string
@@ -33,6 +35,7 @@ interface WorkspaceHomeProps {
 }
 
 export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceHomeProps) {
+    const { t } = useTranslation()
     const personal = getPersonalWorkspace(userId)
 
     // Owned groups (local-first, works offline).
@@ -87,11 +90,11 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
             if (loadSelectedWorkspace()?.id === groupPendingDelete.id) {
                 clearSelectedWorkspace()
             }
-            toast.success('Group deleted')
+            toast.success(t('group.deleted'))
             setGroupPendingDelete(null)
         } catch (err) {
             console.error('Failed to delete group', err)
-            toast.error('Could not delete the group')
+            toast.error(t('group.delete_failed'))
         } finally {
             setIsDeletingGroup(false)
         }
@@ -113,23 +116,26 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
         <div className="h-full w-full overflow-y-auto bg-background">
             <div className="max-w-4xl mx-auto px-6 py-10 space-y-10">
                 {/* Header */}
-                <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 min-w-0">
                         <h1 className="text-3xl md:text-4xl font-serif font-bold text-primary tracking-tight">
                             Aurea
                         </h1>
                         <p className="text-sm text-muted-foreground uppercase tracking-widest">
-                            Workspaces
+                            {t('workspace.title')}
                         </p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => signOut()} title="Sign Out">
-                        <LogOut className="w-4 h-4 text-muted-foreground" />
-                    </Button>
+                    <div className="flex items-center gap-3 shrink-0">
+                        <GlobalSettingsControl />
+                        <Button variant="ghost" size="icon" onClick={() => signOut()} title={t('workspace.sign_out')}>
+                            <LogOut className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Personal */}
                 <section className="space-y-3">
-                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Personal</h2>
+                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('workspace.personal')}</h2>
                     <Card
                         role="button"
                         tabIndex={0}
@@ -146,8 +152,8 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                             <User className="h-6 w-6 text-[#0f766e]" />
                         </div>
                         <div className="min-w-0">
-                            <h3 className="text-lg font-serif font-semibold text-foreground">Personal Trips</h3>
-                            <p className="text-sm text-muted-foreground">Your own trips, private to your account.</p>
+                            <h3 className="text-lg font-serif font-semibold text-foreground">{t('workspace.personal_trips')}</h3>
+                            <p className="text-sm text-muted-foreground">{t('workspace.personal_desc')}</p>
                         </div>
                     </Card>
                 </section>
@@ -155,7 +161,7 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                 {/* Groups */}
                 <section className="space-y-3">
                     <div className="flex items-center justify-between gap-2">
-                        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Groups</h2>
+                        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t('workspace.groups')}</h2>
                         <div className="flex items-center gap-2">
                             <CreateGroupModal ownerId={userId} onCreated={onSelectWorkspace} />
                             <JoinGroupModal onJoined={onSelectWorkspace} />
@@ -163,16 +169,16 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                     </div>
 
                     {isFetching && groups.length === 0 ? (
-                        <p className="text-muted-foreground text-sm">Loading groups…</p>
+                        <p className="text-muted-foreground text-sm">{t('workspace.loading_groups')}</p>
                     ) : groups.length === 0 ? (
                         <Card className="border-dashed border bg-muted/20 p-6 flex flex-col items-center text-center gap-3">
                             <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
                                 <Users className="h-6 w-6 text-muted-foreground" />
                             </div>
                             <div className="space-y-1">
-                                <h3 className="text-base font-serif font-semibold text-foreground">No groups yet</h3>
+                                <h3 className="text-base font-serif font-semibold text-foreground">{t('workspace.no_groups.title')}</h3>
                                 <p className="text-sm text-muted-foreground max-w-md">
-                                    Create a group and share its invite code, or join one with a code from another member.
+                                    {t('workspace.no_groups.desc')}
                                 </p>
                             </div>
                         </Card>
@@ -201,7 +207,7 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                                             <h3 className="text-base font-serif font-semibold text-foreground truncate">{group.name}</h3>
                                             {group.description
                                                 ? <p className="text-sm text-muted-foreground truncate">{group.description}</p>
-                                                : <p className="text-sm text-muted-foreground/70">{isOwner ? 'Owner' : 'Member'}</p>}
+                                                : <p className="text-sm text-muted-foreground/70">{isOwner ? t('group.role.owner') : t('group.role.member')}</p>}
                                         </div>
                                         {/* Owner-only controls (Phase 12D.1). Members collaborate on
                                             group trips/events but cannot edit/delete the group itself. */}
@@ -212,8 +218,8 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                                    title="Edit group"
-                                                    aria-label="Edit group"
+                                                    title={t('group.action.edit')}
+                                                    aria-label={t('group.action.edit')}
                                                     onClick={(e) => { e.stopPropagation(); handleEditGroup(group) }}
                                                 >
                                                     <Pencil className="h-4 w-4" />
@@ -222,8 +228,8 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                    title="Delete group"
-                                                    aria-label="Delete group"
+                                                    title={t('group.action.delete')}
+                                                    aria-label={t('group.action.delete')}
                                                     onClick={(e) => { e.stopPropagation(); setGroupPendingDelete(group) }}
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -250,19 +256,19 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
             <AlertDialog open={!!groupPendingDelete} onOpenChange={(open) => !open && setGroupPendingDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this group?</AlertDialogTitle>
+                        <AlertDialogTitle>{t('group.delete.title')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            The group will be hidden for you and all members. Its trips and events are not deleted. This cannot be undone from the app.
+                            {t('group.delete.desc')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeletingGroup}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeletingGroup}>{t('btn.cancel')}</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={(e) => { e.preventDefault(); handleConfirmDeleteGroup() }}
                             disabled={isDeletingGroup}
                             className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                         >
-                            Delete group
+                            {t('group.action.delete')}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

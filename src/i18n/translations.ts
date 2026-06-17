@@ -24,6 +24,75 @@ export const translations = {
         "trip.deleted": "Trip deleted",
         "trip.delete_failed": "Failed to delete trip",
 
+        // Workspaces & Groups
+        "workspace.title": "Workspaces",
+        "workspace.sign_out": "Sign Out",
+        "workspace.personal": "Personal",
+        "workspace.personal_trips": "Personal Trips",
+        "workspace.personal_desc": "Your own trips, private to your account.",
+        "workspace.groups": "Groups",
+        "workspace.loading_groups": "Loading groups…",
+        "workspace.no_groups.title": "No groups yet",
+        "workspace.no_groups.desc": "Create a group and share its invite code, or join one with a code from another member.",
+
+        "group.create": "Create Group",
+        "group.join": "Join Group",
+        "group.role.owner": "Owner",
+        "group.role.member": "Member",
+        "group.action.edit": "Edit group",
+        "group.action.delete": "Delete group",
+        "group.deleted": "Group deleted",
+        "group.delete_failed": "Could not delete the group",
+        "group.delete.title": "Delete this group?",
+        "group.delete.desc": "The group will be hidden for you and all members. Its trips and events are not deleted. This cannot be undone from the app.",
+
+        // Group: create
+        "group.create.title": "Create a group",
+        "group.create.submit": "Create group",
+        "group.create.saving": "Creating…",
+        "group.created": "Group created",
+        "group.create_failed": "Failed to create group",
+        "group.db_not_ready": "Database not ready",
+        "group.create.share_note": "Group trips and events are shared with active group members.",
+
+        // Group: shared fields
+        "group.field.name": "Group name",
+        "group.field.name_required": "Group name is required",
+        "group.field.name_placeholder": "e.g. Family Holiday 2027",
+        "group.field.description": "Description",
+        "group.field.description_placeholder": "Optional notes about this group",
+
+        // Group: edit
+        "group.edit.title": "Edit group",
+        "group.edit.save": "Save changes",
+        "group.edit.saving": "Saving…",
+        "group.updated": "Group updated",
+        "group.update_failed": "Could not update the group",
+        "group.edit.not_owner": "Only the group owner can edit this group",
+
+        // Group: join
+        "group.join.title": "Join a group",
+        "group.join.code_label": "Invite code",
+        "group.join.code_placeholder": "e.g. AB23CD45",
+        "group.join.invalid_code": "Enter a valid invite code.",
+        "group.join.hint": "Ask a group owner for their invite code. You can leave a group later.",
+        "group.join.submit": "Join group",
+        "group.join.joining": "Joining…",
+        "group.joined": "Joined",
+        "group.join.failed": "Could not join the group. Please try again.",
+
+        // Group: invite
+        "group.invite.tooltip": "Invite to group",
+        "group.invite.title": "Invite to this group",
+        "group.invite.desc": "Share this code. Anyone with it can join the group and see it in their Workspaces.",
+        "group.invite.note": "Active members can see shared group trips and events.",
+        "group.invite.loading": "Loading...",
+        "group.invite.copy": "Copy",
+        "group.invite.copied": "Copied",
+        "group.invite.copied_toast": "Invite code copied",
+        "group.invite.copy_failed": "Could not copy; select and copy manually.",
+        "group.invite.fetch_failed": "Could not get an invite code. Please check your group sharing setup and try again.",
+
         // Navigation
         "nav.all_trips": "All Trips",
         "nav.workspaces": "Workspaces",
@@ -163,6 +232,75 @@ export const translations = {
         "trip.delete.confirm": "刪除旅行",
         "trip.deleted": "旅行已刪除",
         "trip.delete_failed": "刪除旅行失敗",
+
+        // Workspaces & Groups
+        "workspace.title": "工作區",
+        "workspace.sign_out": "登出",
+        "workspace.personal": "個人",
+        "workspace.personal_trips": "個人旅行",
+        "workspace.personal_desc": "您自己的旅行，僅您的帳號可見。",
+        "workspace.groups": "群組",
+        "workspace.loading_groups": "載入群組中…",
+        "workspace.no_groups.title": "尚無群組",
+        "workspace.no_groups.desc": "建立群組並分享邀請碼，或使用其他成員提供的邀請碼加入群組。",
+
+        "group.create": "建立群組",
+        "group.join": "加入群組",
+        "group.role.owner": "擁有者",
+        "group.role.member": "成員",
+        "group.action.edit": "編輯群組",
+        "group.action.delete": "刪除群組",
+        "group.deleted": "群組已刪除",
+        "group.delete_failed": "無法刪除群組",
+        "group.delete.title": "刪除這個群組？",
+        "group.delete.desc": "此群組將對您與所有成員隱藏，但其旅行與活動不會被刪除。此操作無法在應用程式中復原。",
+
+        // Group: create
+        "group.create.title": "建立群組",
+        "group.create.submit": "建立群組",
+        "group.create.saving": "建立中…",
+        "group.created": "群組已建立",
+        "group.create_failed": "建立群組失敗",
+        "group.db_not_ready": "資料庫尚未就緒",
+        "group.create.share_note": "群組旅行與活動會與使用中的群組成員共享。",
+
+        // Group: shared fields
+        "group.field.name": "群組名稱",
+        "group.field.name_required": "請輸入群組名稱",
+        "group.field.name_placeholder": "例如：2027 家庭旅遊",
+        "group.field.description": "說明",
+        "group.field.description_placeholder": "關於此群組的選填備註",
+
+        // Group: edit
+        "group.edit.title": "編輯群組",
+        "group.edit.save": "儲存變更",
+        "group.edit.saving": "儲存中…",
+        "group.updated": "群組已更新",
+        "group.update_failed": "無法更新群組",
+        "group.edit.not_owner": "只有群組擁有者可以編輯此群組",
+
+        // Group: join
+        "group.join.title": "加入群組",
+        "group.join.code_label": "邀請碼",
+        "group.join.code_placeholder": "例如：AB23CD45",
+        "group.join.invalid_code": "請輸入有效的邀請碼。",
+        "group.join.hint": "向群組擁有者索取邀請碼，您之後也可以離開群組。",
+        "group.join.submit": "加入群組",
+        "group.join.joining": "加入中…",
+        "group.joined": "已加入",
+        "group.join.failed": "無法加入群組，請再試一次。",
+
+        // Group: invite
+        "group.invite.tooltip": "邀請加入群組",
+        "group.invite.title": "邀請加入此群組",
+        "group.invite.desc": "分享此邀請碼，任何擁有此碼的人都能加入群組並在他們的工作區看到它。",
+        "group.invite.note": "使用中的成員可以看到共享的群組旅行與活動。",
+        "group.invite.loading": "載入中...",
+        "group.invite.copy": "複製",
+        "group.invite.copied": "已複製",
+        "group.invite.copied_toast": "已複製邀請碼",
+        "group.invite.copy_failed": "無法複製，請手動選取並複製。",
+        "group.invite.fetch_failed": "無法取得邀請碼。請確認群組共用設定後再試一次。",
 
         // Navigation
         "nav.all_trips": "所有旅行",

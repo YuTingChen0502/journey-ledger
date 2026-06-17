@@ -22,6 +22,7 @@ import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import type { GroupDocType } from '@/db/groupSchema'
 import type { GroupSummary } from '@/lib/workspace'
+import { useTranslation } from '@/hooks/useTranslation'
 
 type EditGroupFormData = {
     name: string
@@ -42,6 +43,7 @@ interface EditGroupModalProps {
  * trips/events.
  */
 export function EditGroupModal({ group, open, onOpenChange, onSaved }: EditGroupModalProps) {
+    const { t } = useTranslation()
     const [isSaving, setIsSaving] = useState(false)
     const collection = useRxCollection<GroupDocType>('groups')
 
@@ -60,7 +62,7 @@ export function EditGroupModal({ group, open, onOpenChange, onSaved }: EditGroup
 
     const onSubmit = async (data: EditGroupFormData) => {
         if (!collection || !group) {
-            toast.error('Could not update the group')
+            toast.error(t('group.update_failed'))
             return
         }
         setIsSaving(true)
@@ -69,19 +71,19 @@ export function EditGroupModal({ group, open, onOpenChange, onSaved }: EditGroup
             if (!doc) {
                 // Only the owner has a local group doc; if it's missing the user
                 // isn't the owner (or it isn't synced yet).
-                toast.error('Only the group owner can edit this group')
+                toast.error(t('group.edit.not_owner'))
                 return
             }
             const name = DOMPurify.sanitize(data.name.trim())
             const description = DOMPurify.sanitize(data.description.trim())
             // Preserve id / owner_id / created_at; only patch editable fields.
             await doc.incrementalPatch({ name, description, updated_at: Date.now() })
-            toast.success('Group updated')
+            toast.success(t('group.updated'))
             onSaved?.({ id: group.id, name, description })
             onOpenChange(false)
         } catch (err) {
             console.error('Failed to update group', err)
-            toast.error('Could not update the group')
+            toast.error(t('group.update_failed'))
         } finally {
             setIsSaving(false)
         }
@@ -91,17 +93,17 @@ export function EditGroupModal({ group, open, onOpenChange, onSaved }: EditGroup
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Edit group</DialogTitle>
+                    <DialogTitle>{t('group.edit.title')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
                             name="name"
-                            rules={{ required: 'Group name is required' }}
+                            rules={{ required: t('group.field.name_required') }}
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Group name</FormLabel>
+                                    <FormLabel>{t('group.field.name')}</FormLabel>
                                     <FormControl>
                                         <Input {...field} />
                                     </FormControl>
@@ -114,9 +116,9 @@ export function EditGroupModal({ group, open, onOpenChange, onSaved }: EditGroup
                             name="description"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Description</FormLabel>
+                                    <FormLabel>{t('group.field.description')}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Optional notes about this group" {...field} />
+                                        <Textarea placeholder={t('group.field.description_placeholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -124,10 +126,10 @@ export function EditGroupModal({ group, open, onOpenChange, onSaved }: EditGroup
                         />
                         <div className="flex justify-end gap-2 pt-2">
                             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving}>
-                                Cancel
+                                {t('btn.cancel')}
                             </Button>
                             <Button type="submit" disabled={isSaving}>
-                                {isSaving ? 'Saving…' : 'Save changes'}
+                                {isSaving ? t('group.edit.saving') : t('group.edit.save')}
                             </Button>
                         </div>
                     </form>

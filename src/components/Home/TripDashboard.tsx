@@ -2,7 +2,6 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CalendarDays, Map, ChevronLeft } from "lucide-react"
 import { format, parseISO } from "date-fns"
-import { GlobalSettingsControl } from "./GlobalSettingsControl"
 import { useTranslation } from "@/hooks/useTranslation"
 import type { TripDocType } from "@/db/tripSchema"
 
@@ -33,14 +32,13 @@ export function TripDashboard({ onNavigate, onBack, trip }: TripDashboardProps) 
 
     return (
         <div className="flex h-full min-h-[calc(100vh-8rem)] flex-col items-center justify-center overflow-y-auto p-6 pb-32 relative space-y-12 animate-in fade-in duration-500">
-            {/* Top bar: back to trip library + settings */}
-            <div className="w-full max-w-4xl flex justify-between items-center px-4">
-                {onBack ? (
+            {/* Top bar: back to trip library */}
+            <div className="w-full max-w-4xl flex justify-start items-center px-4">
+                {onBack && (
                     <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground" onClick={onBack}>
-                        <ChevronLeft className="h-4 w-4" /> All Trips
+                        <ChevronLeft className="h-4 w-4" /> {t('nav.all_trips')}
                     </Button>
-                ) : <span />}
-                <GlobalSettingsControl />
+                )}
             </div>
 
             {/* Header */}

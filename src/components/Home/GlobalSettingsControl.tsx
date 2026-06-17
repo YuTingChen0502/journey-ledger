@@ -25,7 +25,7 @@ export function GlobalSettingsControl() {
     return (
         <div
             className={cn(
-                "flex items-center gap-1 px-4 py-2 rounded-full",
+                "flex items-center gap-1 h-9 px-3 sm:px-4 rounded-full",
                 "bg-white/40 backdrop-blur-md border border-white/20 shadow-sm",
                 "transition-all duration-300",
                 "opacity-70 hover:opacity-100 hover:bg-white/60 hover:shadow-md"

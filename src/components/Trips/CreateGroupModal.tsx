@@ -25,6 +25,7 @@ import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import type { GroupDocType } from '@/db/groupSchema'
 import { groupWorkspace, type Workspace } from '@/lib/workspace'
+import { useTranslation } from '@/hooks/useTranslation'
 
 type CreateGroupFormData = {
     name: string
@@ -37,6 +38,7 @@ interface CreateGroupModalProps {
 }
 
 export function CreateGroupModal({ ownerId, onCreated }: CreateGroupModalProps) {
+    const { t } = useTranslation()
     const [open, setOpen] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const collection = useRxCollection<GroupDocType>('groups')
@@ -47,7 +49,7 @@ export function CreateGroupModal({ ownerId, onCreated }: CreateGroupModalProps) 
 
     const onSubmit = async (data: CreateGroupFormData) => {
         if (!collection) {
-            toast.error('Database not ready')
+            toast.error(t('group.db_not_ready'))
             return
         }
         setIsSaving(true)
@@ -65,13 +67,13 @@ export function CreateGroupModal({ ownerId, onCreated }: CreateGroupModalProps) 
                 is_deleted: false,
             }
             await collection.insert(group)
-            toast.success('Group created')
+            toast.success(t('group.created'))
             form.reset({ name: '', description: '' })
             setOpen(false)
             onCreated?.(groupWorkspace(group))
         } catch (err) {
             console.error('Failed to create group', err)
-            toast.error('Failed to create group')
+            toast.error(t('group.create_failed'))
         } finally {
             setIsSaving(false)
         }
@@ -81,24 +83,24 @@ export function CreateGroupModal({ ownerId, onCreated }: CreateGroupModalProps) 
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-2">
-                    <Plus className="w-4 h-4" /> Create Group
+                    <Plus className="w-4 h-4" /> {t('group.create')}
                 </Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Create a group</DialogTitle>
+                    <DialogTitle>{t('group.create.title')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
                             name="name"
-                            rules={{ required: 'Group name is required' }}
+                            rules={{ required: t('group.field.name_required') }}
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Group name</FormLabel>
+                                    <FormLabel>{t('group.field.name')}</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Family Holiday 2027" {...field} />
+                                        <Input placeholder={t('group.field.name_placeholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -109,23 +111,23 @@ export function CreateGroupModal({ ownerId, onCreated }: CreateGroupModalProps) 
                             name="description"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Description</FormLabel>
+                                    <FormLabel>{t('group.field.description')}</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Optional notes about this group" {...field} />
+                                        <Textarea placeholder={t('group.field.description_placeholder')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
                         />
                         <p className="text-xs text-muted-foreground">
-                            Group trips and events are shared with active group members after the Phase 12D migration is applied.
+                            {t('group.create.share_note')}
                         </p>
                         <div className="flex justify-end gap-2 pt-2">
                             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-                                Cancel
+                                {t('btn.cancel')}
                             </Button>
                             <Button type="submit" disabled={isSaving}>
-                                {isSaving ? 'Creating…' : 'Create group'}
+                                {isSaving ? t('group.create.saving') : t('group.create.submit')}
                             </Button>
                         </div>
                     </form>
