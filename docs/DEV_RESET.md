@@ -1,12 +1,12 @@
 # Dev Reset Guide (testing only)
 
-How to restart Journey Ledger manual testing from a clean state.
+How to restart Aurea manual testing from a clean state.
 
 > ⚠️ **Everything here is for a disposable DEV / TEST environment.**
 > **Never** run the reset SQL against a production project, and never delete data
 > you care about. There is no undo.
 
-Journey Ledger is local-first, so a full reset has **two** sides:
+Aurea is local-first, so a full reset has **two** sides:
 
 1. **Local browser state** (the RxDB/IndexedDB copy on each device).
 2. **Supabase data** (the cloud mirror that re-syncs into the browser).

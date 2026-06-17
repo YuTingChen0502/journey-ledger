@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Deploying Journey Ledger is two parts: provision the Supabase backend, then build and host the static PWA frontend.
+Deploying Aurea is two parts: provision the Supabase backend, then build and host the static PWA frontend.
 
 ## 1. Supabase Project Setup
 
@@ -25,7 +25,7 @@ http://localhost:5173/reset-password
 http://localhost:5173/**
 ```
 
-Do not hardcode the production domain in app code; Journey Ledger builds the reset redirect from `window.location.origin`.
+Do not hardcode the production domain in app code; Aurea builds the reset redirect from `window.location.origin`.
 
 ### Email sending & signup/password-reset rate limits
 
@@ -68,7 +68,7 @@ Set these on your hosting provider and locally in `.env.local`:
 
 ## 3. Build & Host
 
-Journey Ledger is a static SPA/PWA. Host the build output on Vercel, Netlify, Cloudflare Pages, GitHub Pages, S3 + CDN, or another static host.
+Aurea is a static SPA/PWA. Host the build output on Vercel, Netlify, Cloudflare Pages, GitHub Pages, S3 + CDN, or another static host.
 
 | Setting | Value |
 |---------|-------|
@@ -88,6 +88,13 @@ Journey Ledger is a static SPA/PWA. Host the build output on Vercel, Netlify, Cl
 - [ ] Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Project Settings / Environment Variables.
 - [ ] After the first deploy, copy the production URL into Supabase Auth URL Configuration.
 - [ ] Redeploy if you changed env vars after the initial build.
+
+After the GitHub repository rename, existing local clones should update their
+remote URL, for example:
+
+```bash
+git remote set-url origin https://github.com/YuTingChen0502/Aurea.git
+```
 
 ## 4. Post-Deploy Smoke Test
 
@@ -174,7 +181,7 @@ iPhone Safari:
 1. Open the deployed production URL.
 2. Tap Share.
 3. Tap Add to Home Screen.
-4. Confirm the name Journey Ledger and icon.
+4. Confirm the name Aurea and icon.
 5. Open the app from the Home Screen.
 ```
 

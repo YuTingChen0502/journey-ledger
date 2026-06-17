@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Journey Ledger">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Aurea">
   <rect width="64" height="64" rx="14" fill="#4a1920"/>
-  <!-- Journey: a bold location pin (filled for legibility at favicon size) -->
+  <!-- Aurea: a bold location pin (filled for legibility at favicon size) -->
   <path d="M32 12C23.2 12 16 19.2 16 28c0 11.4 13.9 22.6 14.5 23.1a2.4 2.4 0 0 0 3 0C34.1 50.6 48 39.4 48 28c0-8.8-7.2-16-16-16z" fill="#E6C888"/>
   <circle cx="32" cy="27.5" r="6.2" fill="#4a1920"/>
   <!-- Ledger: an entry baseline beneath the pin -->

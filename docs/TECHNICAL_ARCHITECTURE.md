@@ -2,6 +2,8 @@
 
 本文件詳細闡述 **Nagoya 2026 Trip Planner** 的技術堆疊、系統架構設計以及資安評估報告。本專案採用現代化的 **Local-First** 架構，確保在旅遊途中無網路環境下仍能完整運作。
 
+> Current product name: **Aurea**. Aurea was formerly Journey Ledger, which was refactored from the single-trip Nagoya_ledger app. This document preserves historical architecture context where useful.
+
 ---
 
 ## 1. 技術堆疊 (Technology Stack)

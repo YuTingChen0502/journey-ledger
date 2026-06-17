@@ -76,7 +76,7 @@ export function ResetPasswordView({ canUpdatePassword, onBackToLogin }: ResetPas
             <Card className="w-full max-w-[380px]">
                 <CardHeader>
                     <CardTitle>Reset password</CardTitle>
-                    <CardDescription>Choose a new Journey Ledger password.</CardDescription>
+                    <CardDescription>Choose a new Aurea password.</CardDescription>
                 </CardHeader>
                 {success ? (
                     <>

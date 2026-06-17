@@ -134,7 +134,7 @@ export function TripLibrary({ workspace, onSelectTrip, onBackToWorkspaces, signO
                         <div className="space-y-1">
                             <h2 className="text-xl font-serif font-semibold text-foreground">No trips yet</h2>
                             <p className="text-sm text-muted-foreground max-w-sm">
-                                Journey Ledger keeps a journal and plan for each trip. Create your first trip to get started — everything works offline and syncs when you reconnect.
+                                Aurea keeps a journal and plan for each trip. Create your first trip to get started — everything works offline and syncs when you reconnect.
                             </p>
                         </div>
                         <CreateTripModal workspace={workspace} ownerId={ownerId} onCreated={onSelectTrip} />

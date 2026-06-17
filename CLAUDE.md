@@ -1,11 +1,12 @@
-# CLAUDE.md — Journey Ledger Project Instructions
+# CLAUDE.md — Aurea Project Instructions
 
 This file is the persistent source of truth for future Claude Code sessions. Read it before making changes. Keep it current (see **Update Policy**).
 
 ## Project Identity
 
 * This repository was started from `Nagoya_ledger`.
-* The new product is **Journey Ledger**.
+* The product is now **Aurea**.
+* Aurea was formerly **Journey Ledger** during the multi-trip refactor.
 * The goal is to refactor from a single-trip **Nagoya 2026** planner into a general **multi-trip travel ledger**.
 
 ## Product Goal
@@ -71,11 +72,14 @@ This file is the persistent source of truth for future Claude Code sessions. Rea
 * **Phase 12D.1 / 12F-lite:** Stabilization — auth reset-email rate-limit UX + SMTP docs, owner-only group edit/soft-delete, dev-reset docs. No new migration; no permission roles.
 * **Phase 12D.2:** Group workspace convergence / offline-first sync — robust delete-aware retrying group hydration (entry + reconnect), no clobbering of unpushed offline edits, deterministic last-write-wins conflict policy. Foundational sync fix; **paused 12E/12F** for this.
 * **Phase 12D.3:** Auth email rate-limit UX/docs + responsive timeline/overview polish.
+* **Brand rename:** Journey Ledger → Aurea (branding/metadata only; no sync, Supabase, RLS, RxDB, or data-model changes).
 * **Phase 12E:** Group permission/lifecycle hardening (roles UI, member management, leave/remove, invite lifecycle) and remaining release hardening.
 
 ## Phase Status
 
-Current phase: Phase 12D.3 complete - auth email rate-limit UX/docs + responsive timeline/overview polish (next -> Phase 12E group permission/lifecycle hardening)
+Current phase: Brand rename complete - Journey Ledger → Aurea (branding/metadata only; next -> Phase 12E group permission/lifecycle hardening)
+
+> **Brand rename:** visible product copy, package metadata, PWA manifest, README/deployment docs, and active logo references now use **Aurea**. This did **not** change Supabase tables, RLS, RPCs, migrations, RxDB schemas/database names, replication identifiers, localStorage compatibility keys, or Phase 12E functionality.
 
 Completed:
 - **Phase 0 — v2 baseline.** Metadata rebranded to Journey Ledger (`package.json`, `vite.config.ts` PWA manifest, `index.html` title/alt, `README.md`); `CLAUDE.md` created. Runtime behavior unchanged; single-trip behavior preserved.
@@ -246,11 +250,11 @@ Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` r
 - **Allowed comments:** `src/App.tsx` (bootstrap comment), `src/lib/parser.ts` (date-header regex example), `src/components/TripViewer/TripViewer.tsx` (Phase 9 note documenting the mock-weather removal). `src/services/geocoding.ts` example is now generic (no Nagoya).
 - **Allowed legacy fallback constants:** `src/context/SettingsContext.tsx` `LEGACY_KEY_LANG`/`LEGACY_KEY_FONT` (`nagoya_*`) — read-once migration only.
 - **REMOVED in Phase 9:** the mock `WEATHER_FORECAST` (Nagoya 2026 dates) is gone from TripViewer. No active component shows mock/Nagoya weather. Real weather is event-coordinate-based only.
-- **DELETED in Phase 8:** dead `LandingPage.tsx`; Nagoya-themed `public/` binaries (`home_icon.jpg`, `splash-cover.jpg`, `pwa-icon.png`, `castle_logo.jpg`, `splash-logo*.{png,jpg}`, `vite.svg`). Active branding is now the neutral `public/logo.svg`.
+- **Brand rename:** Active branding is now Aurea. The installed/PWA/fav icon uses `public/aurea-mark.png`, and the splash screen uses `public/aurea-splash.png`. `public/logo.svg` remains as a legacy neutral asset, but active UI no longer references it.
 - **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset/weather implies all trips are Nagoya.
 
 In progress:
-- (none - Phase 12D.3 complete; next planned product phase is Phase 12E group permission/lifecycle hardening.)
+- (none - brand rename complete; next planned product phase is Phase 12E group permission/lifecycle hardening.)
 
 Next — Post-release backlog / maintenance:
 - **Phase 12E - group permission/lifecycle hardening.** Roles UI, member management, leave/remove member, invite revoke/expiry UI, owner transfer decisions, and finer delete/archive permissions for collaborative group content.
@@ -264,6 +268,7 @@ Next — Post-release backlog / maintenance:
 ## Architecture Changes (running log)
 
 - **Phase 12D.3:** Auth email error handling is centralized in `authRecovery.ts` for both signup and password-reset email sends. Timeline/Overview polish is purely presentational: a wider workspace shell on tablet/desktop, stable responsive timeline day widths, and horizontal overflow for timeline and overview day selectors. No database schema, sync, RLS, RPC, or group permission logic changed.
+- **Brand rename:** Journey Ledger is now Aurea in visible UI, metadata, PWA manifest, README, and deployment docs. The rename is branding/metadata only: no Supabase table/RLS/RPC/migration, RxDB schema/database-name, replication identifier, or localStorage compatibility key was changed.
 - **Phase 12D:** Trips/events are now shared group content when their parent trip belongs to a group workspace. The `trips` and `trip_events` replication push path uses SECURITY DEFINER RPCs instead of direct table upsert, so inserts assign `user_id`/`owner_id` to the creator and updates preserve existing ownership/workspace/parent-trip identity. Pull includes top-level `user_id` and no longer re-owns shared documents locally. Event schema v4 adds optional `workspace_type`/`workspace_id`; parent trip remains the source of truth for legacy events. `AppContent` hydrates group workspaces by fetching visible group trips/events online to cover rows older than the local replication checkpoint.
 - **Phase 12D fix (member collaboration):** Group content is **fully collaborative for active members**, not just the owner. `can_manage_trip_row` is now member-based (`is_group_member`) instead of group-owner-based — this both enables member trip create/edit and removes the member-side replication stall that made owner→member trip sharing asymmetric (hydration push-back of group trips no longer rejected). Ownership is still preserved on update by `sync_trip_documents` (membership grants collaboration, not ownership transfer); personal trips stay owner-only. Frontend gates trip edit/delete via the new pure helper `canManageTrip(trip, workspace, userId)` (member-collaborative for group workspaces, owner-only for personal). Follow-up migration `supabase/migrations/20260618_group_member_collaboration_fix.sql`; `bootstrap.sql` ships the fixed helper. No schema/replication-shape change.
 - **Phase 12D.1 / 12F-lite:** Two distinct group capabilities are now cleanly separated. **Group *content* (trips/events) = member-collaborative** (`canManageTrip` / member-based RLS, from 12D). **The group *document* (name/description/soft-delete) = owner-only** (`canManageGroup` = `isGroupOwner`; the `groups` table's pre-existing owner-only UPDATE RLS is the authoritative guard). Owner-only edit/delete lives in `WorkspaceHome` (+ `EditGroupModal`), operating on the local-first RxDB `groups` doc; soft-delete sets `is_deleted=true` (member-visibility queries filter `deleted=false`, hiding it for everyone) with **no cascade** to group trips/events and **no migration**. Auth reset-email errors are classified in `authRecovery.ts` (`isRateLimitError`/`describeResetEmailError`) for friendly rate-limit messaging — no provider bypass, no secrets in the client. Dev-only reset path documented (`docs/DEV_RESET.md` + `supabase/dev_reset.sql`, outside `migrations/`).

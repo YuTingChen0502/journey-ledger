@@ -1,11 +1,12 @@
-# AGENTS.md — Journey Ledger Project Instructions
+# AGENTS.md — Aurea Project Instructions
 
 This file is the persistent source of truth for future Codex sessions. Read it before making changes. Keep it current (see **Update Policy**).
 
 ## Project Identity
 
 * This repository was started from `Nagoya_ledger`.
-* The new product is **Journey Ledger**.
+* The product is now **Aurea**.
+* Aurea was formerly **Journey Ledger** during the multi-trip refactor.
 * The goal is to refactor from a single-trip **Nagoya 2026** planner into a general **multi-trip travel ledger**.
 
 ## Product Goal
@@ -71,11 +72,14 @@ This file is the persistent source of truth for future Codex sessions. Read it b
 * **Phase 12D.1 / 12F-lite:** Stabilization — auth reset-email rate-limit UX + SMTP docs, owner-only group edit/soft-delete, dev-reset docs. No new migration; no permission roles.
 * **Phase 12D.2:** Group workspace convergence / offline-first sync — robust delete-aware retrying group hydration (entry + reconnect), no clobbering of unpushed offline edits, deterministic last-write-wins. Foundational; 12E/12F paused for it.
 * **Phase 12D.3:** Auth email rate-limit UX/docs + responsive timeline/overview polish.
+* **Brand rename:** Journey Ledger → Aurea (branding/metadata only; no sync, Supabase, RLS, RxDB, or data-model changes).
 * **Phase 12E:** Group permission/lifecycle hardening (roles UI, member management, leave/remove, invite lifecycle) and remaining release hardening.
 
 ## Phase Status
 
-Current phase: Phase 12D.3 complete - auth email rate-limit UX/docs + responsive timeline/overview polish (next -> Phase 12E group permission/lifecycle hardening)
+Current phase: Brand rename complete - Journey Ledger → Aurea (branding/metadata only; next -> Phase 12E group permission/lifecycle hardening)
+
+> **Brand rename:** visible product copy, package metadata, PWA manifest, README/deployment docs, and active logo references now use **Aurea**. This did **not** change Supabase tables, RLS, RPCs, migrations, RxDB schemas/database names, replication identifiers, localStorage compatibility keys, or Phase 12E functionality.
 
 > **Phase 12D.3 polish:** signup and forgot-password email-send rate limits now share one friendly auth message (`Too many emails were requested. Please wait about an hour and try again.`) via `authRecovery.ts`; no Supabase limit bypass, no service-role keys, no Management API, and no SMTP secrets in frontend code. Workspace screens use a wider tablet/desktop shell; the planning timeline has stable responsive day-column widths plus horizontal scrolling; Overview day tabs use a native `overflow-x-auto` + `min-w-max` strip so long trip date ranges remain reachable. No group sync/RLS/RPC/replication changes.
 
@@ -232,11 +236,11 @@ Remaining `nagoya-2026` / `Nagoya` / `名古屋` / `2026-01-31` / `2026-02-07` r
 - **Allowed comments:** `src/App.tsx` (bootstrap comment), `src/lib/parser.ts` (date-header regex example), `src/components/TripViewer/TripViewer.tsx` (Phase 9 note documenting the mock-weather removal). `src/services/geocoding.ts` example is now generic (no Nagoya).
 - **Allowed legacy fallback constants:** `src/context/SettingsContext.tsx` `LEGACY_KEY_LANG`/`LEGACY_KEY_FONT` (`nagoya_*`) — read-once migration only.
 - **REMOVED in Phase 9:** the mock `WEATHER_FORECAST` (Nagoya 2026 dates) is gone from TripViewer. No active component shows mock/Nagoya weather. Real weather is event-coordinate-based only.
-- **DELETED in Phase 8:** dead `LandingPage.tsx`; Nagoya-themed `public/` binaries (`home_icon.jpg`, `splash-cover.jpg`, `pwa-icon.png`, `castle_logo.jpg`, `splash-logo*.{png,jpg}`, `vite.svg`). Active branding is now the neutral `public/logo.svg`.
+- **Brand rename:** Active branding is now Aurea. The installed/PWA/fav icon uses `public/aurea-mark.png`, and the splash screen uses `public/aurea-splash.png`. `public/logo.svg` remains as a legacy neutral asset, but active UI no longer references it.
 - **Active runtime risk:** NONE — no routing on `nagoya-2026`; create/import default to the selected trip; no visible product copy/asset/weather implies all trips are Nagoya.
 
 In progress:
-- (none - Phase 12D.3 complete; next planned product phase is Phase 12E group permission/lifecycle hardening.)
+- (none - brand rename complete; next planned product phase is Phase 12E group permission/lifecycle hardening.)
 
 Next — Post-release backlog / maintenance:
 - **Phase 12E - group permission/lifecycle hardening.** Roles UI, member management, leave/remove member, invite revoke/expiry UI, owner transfer decisions, and finer delete/archive permissions for collaborative group content.
@@ -250,6 +254,7 @@ Next — Post-release backlog / maintenance:
 ## Architecture Changes (running log)
 
 - **Phase 12D.3:** Auth email error handling is centralized in `authRecovery.ts` for both signup and password-reset email sends. Timeline/Overview polish is purely presentational: a wider workspace shell on tablet/desktop, stable responsive timeline day widths, and horizontal overflow for timeline and overview day selectors. No database schema, sync, RLS, RPC, or group permission logic changed.
+- **Brand rename:** Journey Ledger is now Aurea in visible UI, metadata, PWA manifest, README, and deployment docs. The rename is branding/metadata only: no Supabase table/RLS/RPC/migration, RxDB schema/database-name, replication identifier, or localStorage compatibility key was changed.
 - **Phase 12D:** Trips/events are now shared group content when their parent trip belongs to a group workspace. The `trips` and `trip_events` replication push path uses SECURITY DEFINER RPCs instead of direct table upsert, so inserts assign `user_id`/`owner_id` to the creator and updates preserve existing ownership/workspace/parent-trip identity. Pull includes top-level `user_id` and no longer re-owns shared documents locally. Event schema v4 adds optional `workspace_type`/`workspace_id`; parent trip remains the source of truth for legacy events. `AppContent` hydrates group workspaces by fetching visible group trips/events online to cover rows older than the local replication checkpoint.
 - **Phase 1:** Second RxDB collection `trips` alongside `tripevents`. Independent Supabase replication channel (`trips_db_changes`, identifier `supabase-jsonb-trips-v1`). Trips replication failures are isolated from events replication. Legacy trip bootstrap runs once per load (no-op if the trip already exists locally).
 - **Phase 2:** Trip-selection gate in `AppContent` (`selectedTripId` state). New `src/components/Trips/` module (TripLibrary / TripCard / CreateTripModal). TripLibrary is the post-auth landing; the legacy single-trip workspace renders only after a trip is selected. Workspace internals remain legacy-scoped (`TRIP_ID = 'nagoya-2026'`) — selection is an entry point, not yet a data scope. `selectedTripId` is in-memory only (not persisted across reloads).

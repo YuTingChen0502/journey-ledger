@@ -1,8 +1,8 @@
-# Journey Ledger
+# Aurea
 
-**Journey Ledger** is a local-first, multi-trip travel journal and planner. Each trip is its own workspace with a Journal, a Planning timeline, a data Table, and Smart Import — all working fully offline and syncing to the cloud when you reconnect.
+**Aurea** is a local-first, multi-trip travel journal and planner. Each trip is its own workspace with a Journal, a Planning timeline, a data Table, and Smart Import — all working fully offline and syncing to the cloud when you reconnect.
 
-> Originated from the single-trip `Nagoya_ledger` app and refactored into a general multi-trip ledger. See [`CLAUDE.md`](CLAUDE.md) for the full phase history.
+> Aurea originated as Journey Ledger, which itself was refactored from the single-trip `Nagoya_ledger` app. See [`CLAUDE.md`](CLAUDE.md) for the full phase history.
 
 ## Features
 
@@ -18,7 +18,7 @@
 
 ### Weather & location
 
-Weather is **event-level and real**: when an event has a location/coordinates, Journey Ledger fetches a coordinate-based forecast from the keyless public [Open-Meteo](https://open-meteo.com/) API (geocoding via Open-Meteo + OpenStreetMap Nominatim). **No weather/geocoding API key or secret is required.** If an event has no location, the weather widget is simply hidden. Trip-level (per-day) forecast is **not** shown yet — it is deferred future work; the old mock trip weather was removed in Phase 9.
+Weather is **event-level and real**: when an event has a location/coordinates, Aurea fetches a coordinate-based forecast from the keyless public [Open-Meteo](https://open-meteo.com/) API (geocoding via Open-Meteo + OpenStreetMap Nominatim). **No weather/geocoding API key or secret is required.** If an event has no location, the weather widget is simply hidden. Trip-level (per-day) forecast is **not** shown yet — it is deferred future work; the old mock trip weather was removed in Phase 9.
 
 ## Tech stack
 

@@ -9,18 +9,18 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.svg'],
+      includeAssets: ['aurea-mark.png', 'aurea-splash.png'],
       manifest: {
-        name: 'Journey Ledger',
-        short_name: 'Journey',
-        description: 'Journey Ledger — a local-first travel journal and planner.',
-        theme_color: '#4a1920',
-        background_color: '#4a1920',
+        name: 'Aurea',
+        short_name: 'Aurea',
+        description: 'Aurea - a local-first travel journal and planner.',
+        theme_color: '#40171A',
+        background_color: '#40171A',
         icons: [
           {
-            src: 'logo.svg',
-            sizes: 'any',
-            type: 'image/svg+xml',
+            src: 'aurea-mark.png',
+            sizes: '1254x1254',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]

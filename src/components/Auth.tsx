@@ -120,7 +120,7 @@ export function Auth() {
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
             <Card className="w-[350px]">
                 <CardHeader>
-                    <CardTitle>Journey Ledger</CardTitle>
+                    <CardTitle>Aurea</CardTitle>
                     <CardDescription>Log in or create an account</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -178,7 +178,7 @@ export function Auth() {
                     <DialogHeader>
                         <DialogTitle>Forgot password?</DialogTitle>
                         <DialogDescription>
-                            Enter your account email and Journey Ledger will send a password reset link.
+                            Enter your account email and Aurea will send a password reset link.
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={handleSendResetEmail} className="space-y-4" noValidate>

@@ -160,10 +160,10 @@ export function TripWorkspace({ trip, onBackToTrips, signOut }: TripWorkspacePro
                 onClick={onBackToTrips}
                 title={t('nav.all_trips')}
             >
-                <div className="relative w-12 h-12 rounded-full overflow-hidden transition-colors shadow-sm bg-[#4a1920]">
-                    <img src="/logo.svg" alt={t('nav.all_trips')} className="w-full h-full object-cover opacity-95 group-hover:opacity-100 transition-opacity" />
+                <div className="relative w-12 h-12 rounded-full overflow-hidden transition-colors shadow-sm bg-[#40171A]">
+                    <img src="/aurea-mark.png" alt={t('nav.all_trips')} className="w-full h-full object-contain" />
                 </div>
-                <span className="hidden sm:inline font-serif font-semibold text-primary tracking-tight">Journey Ledger</span>
+                <span className="hidden sm:inline font-serif font-semibold text-primary tracking-tight">Aurea</span>
             </div>
 
             {/* Back → current trip dashboard (internal to this workspace). */}

@@ -1,13 +1,13 @@
 export const translations = {
     en: {
         // Dashboard
-        "trip.title": "Journey Ledger",
+        "trip.title": "Aurea",
         "trip.dates": "Travel Journal & Planner",
         "dashboard.overview.title": "Overview",
         "dashboard.overview.desc": "View your travel journal and itinerary in a read-only format.",
         "dashboard.planning.title": "Planning",
         "dashboard.planning.desc": "Edit schedule, manage data grid, and organize events.",
-        "dashboard.footer": "Journey Ledger",
+        "dashboard.footer": "Aurea",
 
         // Trips (library / edit / delete)
         "trip.action.edit": "Edit",
@@ -87,7 +87,7 @@ export const translations = {
         "detail.confirm_delete": "Are you sure you want to delete this event?",
         "detail.photo.add": "Add Photo",
         "detail.quote": "Collect moments, not things.",
-        "detail.location_tag": "Journey Ledger",
+        "detail.location_tag": "Aurea",
         "detail.label.checklist": "Checklist",
         "detail.checklist.placeholder": "Item...",
         "detail.label.memo": "Memo",
@@ -141,13 +141,13 @@ export const translations = {
     },
     'zh-TW': {
         // Dashboard
-        "trip.title": "Journey Ledger",
+        "trip.title": "Aurea",
         "trip.dates": "旅行日誌與規劃",
         "dashboard.overview.title": "行程概覽",
         "dashboard.overview.desc": "以閱讀模式查看您的旅行日誌與行程安排。",
         "dashboard.planning.title": "規劃管理",
         "dashboard.planning.desc": "編輯行程表、管理資料表格與活動細節。",
-        "dashboard.footer": "Journey Ledger",
+        "dashboard.footer": "Aurea",
 
         // Trips (library / edit / delete)
         "trip.action.edit": "編輯",
@@ -227,7 +227,7 @@ export const translations = {
         "detail.confirm_delete": "確定要刪除此活動嗎？",
         "detail.photo.add": "新增照片",
         "detail.quote": "收藏回憶，而非物品。",
-        "detail.location_tag": "Journey Ledger",
+        "detail.location_tag": "Aurea",
         "detail.label.checklist": "待辦事項",
         "detail.checklist.placeholder": "輸入項目...",
         "detail.label.memo": "備忘錄",

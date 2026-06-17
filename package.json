@@ -1,8 +1,8 @@
 {
-  "name": "journey-ledger",
+  "name": "aurea",
   "private": true,
   "version": "2.0.0",
-  "description": "Journey Ledger — a local-first, multi-trip travel journal and planner (React + TypeScript + Vite + RxDB + Supabase).",
+  "description": "Aurea - a local-first, multi-trip travel journal and planner (React + TypeScript + Vite + RxDB + Supabase).",
   "type": "module",
   "scripts": {
     "dev": "vite",

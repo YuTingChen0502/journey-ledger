@@ -116,7 +116,7 @@ export function WorkspaceHome({ userId, onSelectWorkspace, signOut }: WorkspaceH
                 <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                         <h1 className="text-3xl md:text-4xl font-serif font-bold text-primary tracking-tight">
-                            Journey Ledger
+                            Aurea
                         </h1>
                         <p className="text-sm text-muted-foreground uppercase tracking-widest">
                             Workspaces
